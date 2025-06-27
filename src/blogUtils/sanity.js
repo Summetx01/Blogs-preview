@@ -402,3 +402,37 @@ const convertNewsroomAttribute = (attr) => {
     )} min read`,
   };
 };
+
+export async function getLatest5Blogs() {
+  const blogs = await client.fetch(
+    `*[_type == "blog" && should_hide != true] | order(publishedAt desc) [0...5] {
+      title,
+      "slug": slug.current,
+      "imageUrl": mainImage.asset->url,
+      publishedAt,
+      "bodyCharacterLength": round(length(pt::text(body))),
+      "blockCharacterLength": round(length((block)))
+    }`
+  );
+
+  const convertedBlogs = blogs.map((blog) => {
+    return {
+      title: blog.title,
+      slug: blog.slug,
+      imageUrl: formatImage(blog.imageUrl),
+      publishedAt: new Date(blog.publishedAt)
+        .toDateString()
+        .split(" ")
+        .slice(1)
+        .join(" ")
+        .replace(/\s\d{2}\s/, " "),
+      readTime: `${Math.round(
+        ((blog?.bodyCharacterLength ?? 0) + (blog?.blockCharacterLength ?? 0)) /
+          5 /
+          180
+      )} min read`,
+    };
+  });
+
+  return convertedBlogs;
+}
