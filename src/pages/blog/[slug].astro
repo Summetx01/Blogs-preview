@@ -11,8 +11,6 @@ import { parseArticleHeadings } from "../../blogUtils/blog-utils";
 import CountryDropdown from "../../components/CountryDropdown.astro"
 import {
   getCurrentBlogSanity,
-  getAllBlogsFromSanity,
-  getTrendingBlogs,
 } from "../../blogUtils/sanity"
 import PortableTextImage from "../../blogUtils/PortableText/PortableTextImage.astro";
 import PortableTextTable from "../../blogUtils/PortableText/PortableTextTable.astro";
@@ -21,6 +19,7 @@ import PortableH2 from "../../blogUtils/PortableText/PortableH2.astro";
 import ArticleImageZoom from "../../blogUtils/ArticleImageZoom.astro";
 import PortableH3 from "../../blogUtils/PortableText/PortableH3.astro";
 import VideoEmbedRenderer from "../../blogUtils/PortableText/VideoEmbedRenderer.astro";
+import SpellCheckToggle from "../../components/SpellCheck/SpellCheckToggle.astro";
 
 const blogFromStrapi = null;
 
@@ -337,6 +336,12 @@ if (currentArticle?.alternateLanguageVersion) {
             <!--summary section start-->
 
             <!--summary section end-->
+            
+            <!-- Spell Check Toggle -->
+            <div class="fixed bottom-0 right-0 mb-6 mr-6">
+              <SpellCheckToggle customClass="z-20" />
+            </div>
+            
             {
               content.length > 0 ? (
                 <>

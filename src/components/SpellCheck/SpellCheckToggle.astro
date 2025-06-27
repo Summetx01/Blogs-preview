@@ -1,0 +1,467 @@
+---
+const { customClass = "" } = Astro.props;
+---
+
+<div class={`spell-check-toggle-container ${customClass}`}>
+  <button
+    id="spell-check-toggle"
+    class="spell-check-toggle relative bg-gray-800 shadow-lg border-2 border-gray-700 rounded-xl px-5 py-3 text-white hover:bg-gray-700 hover:border-blue-500 hover:shadow-xl transition-all duration-300 ease-out flex items-center gap-3 font-medium text-sm"
+    aria-label="Toggle spell check"
+  >
+    <div class="relative">
+      <svg class="w-5 h-5 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+      <!-- Pulse indicator for active state -->
+      <div class="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full opacity-0 scale-0 transition-all duration-200 pulse-indicator"></div>
+    </div>
+    <span class="spell-check-text">Spell Check</span>
+    <span class="error-count hidden bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow-sm">0</span>
+  </button>
+
+  <div class="spell-check-loading hidden mt-3">
+    <div class="flex items-center gap-3 text-sm text-white bg-gray-800 bg-opacity-95 rounded-lg px-4 py-2 shadow-lg border border-gray-600">
+      <div class="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent"></div>
+      <span>Checking spelling...</span>
+    </div>
+  </div>
+
+  <div class="spell-check-status mt-3 text-sm hidden">
+    <div class="status-container bg-gray-800 bg-opacity-95 rounded-lg px-4 py-2 shadow-lg border-l-4 border border-gray-600">
+      <span class="status-text font-medium text-white"></span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .spell-check-toggle.active {
+    background-color: #3b82f6;
+    border-color: #2563eb;
+    color: white;
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
+    transform: translateY(-1px);
+  }
+  
+  .spell-check-toggle.active .pulse-indicator {
+    opacity: 1;
+    scale: 1;
+    animation: pulse 2s infinite;
+  }
+  
+  .spell-check-toggle.active svg {
+    transform: scale(1.1);
+  }
+  
+  .spell-check-toggle:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+  
+  .spell-check-toggle:disabled:hover {
+    background-color: #374151;
+    border-color: #4b5563;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Status container variants */
+  .status-container.success {
+    border-left-color: #22c55e;
+  }
+  
+  .status-container.success .status-text {
+    color: #86efac;
+  }
+  
+  .status-container.warning {
+    border-left-color: #f59e0b;
+  }
+  
+  .status-container.warning .status-text {
+    color: #fbbf24;
+  }
+  
+  .status-container.error {
+    border-left-color: #ef4444;
+  }
+  
+  .status-container.error .status-text {
+    color: #fca5a5;
+  }
+  
+  .status-container.info {
+    border-left-color: #3b82f6;
+  }
+  
+  .status-container.info .status-text {
+    color: #93c5fd;
+  }
+</style>
+
+<script>
+  import { getSpellCheckEngine } from '../../utils/spellCheck/engine.js';
+  import { DOMTextExtractor } from '../../utils/spellCheck/textExtractor.js';
+
+  class SpellCheckToggle {
+    isActive: boolean;
+    isLoading: boolean;
+    spellChecker: any;
+    errors: any[];
+    highlightedElements: HTMLElement[];
+    toggleButton!: HTMLElement | null;
+    errorCount!: HTMLElement | null;
+    spellCheckText!: HTMLElement | null;
+    loadingIndicator!: HTMLElement | null;
+    statusElement!: HTMLElement | null;
+    articleContent!: HTMLElement | null;
+
+    constructor() {
+      this.isActive = false;
+      this.isLoading = false;
+      this.spellChecker = null;
+      this.errors = [];
+      this.highlightedElements = [];
+      
+      this.initializeElements();
+      this.attachEventListeners();
+    }
+
+    initializeElements() {
+      this.toggleButton = document.getElementById('spell-check-toggle');
+      this.errorCount = this.toggleButton?.querySelector('.error-count') || null;
+      this.spellCheckText = this.toggleButton?.querySelector('.spell-check-text') || null;
+      this.loadingIndicator = document.querySelector('.spell-check-loading');
+      this.statusElement = document.querySelector('.spell-check-status .status-text');
+      this.articleContent = document.querySelector('article');
+    }
+
+    attachEventListeners() {
+      this.toggleButton?.addEventListener('click', () => this.handleToggle());
+      
+      // Listen for custom events
+      document.addEventListener('spell-check-error-clicked', (e: any) => {
+        this.handleErrorClick(e.detail);
+      });
+    }
+
+    async handleToggle() {
+      if (this.isLoading) return;
+
+      if (this.isActive) {
+        this.deactivateSpellCheck();
+      } else {
+        await this.activateSpellCheck();
+      }
+    }
+
+    async activateSpellCheck() {
+      if (!this.articleContent) {
+        this.showStatus('No article content found', 'error');
+        return;
+      }
+
+      this.setLoading(true);
+      this.showStatus('Initializing spell checker...');
+
+      try {
+        // Initialize spell checker
+        this.spellChecker = await getSpellCheckEngine();
+        
+        const method = this.spellChecker.useAPI ? 'LanguageTool API' : 'local dictionary';
+        this.showStatus(`Using ${method} for spell checking...`);
+        
+        this.showStatus('Extracting text...');
+        
+        // Extract text from article
+        const extractor = new DOMTextExtractor(this.articleContent);
+        const { text, textNodes } = extractor.extractText();
+        
+        if (!text.trim()) {
+          this.showStatus('No text content found to check', 'warning');
+          this.setLoading(false);
+          return;
+        }
+
+        this.showStatus('Checking spelling...');
+        
+        // Check spelling with new async API
+        this.errors = await this.spellChecker.checkText(text);
+        
+        // Highlight errors
+        this.highlightErrors(this.errors, textNodes);
+        
+        // Update UI
+        this.isActive = true;
+        this.updateToggleUI();
+        this.updateErrorCount();
+        
+        const errorText = this.errors.length === 1 ? 'error' : 'errors';
+        this.showStatus(`Found ${this.errors.length} spelling ${errorText}`, 
+          this.errors.length > 0 ? 'warning' : 'success');
+
+      } catch (error) {
+        console.error('Spell check failed:', error);
+        this.showStatus('Spell check failed. Please try again.', 'error');
+      } finally {
+        this.setLoading(false);
+      }
+    }
+
+    deactivateSpellCheck() {
+      this.clearHighlights();
+      this.isActive = false;
+      this.errors = [];
+      this.updateToggleUI();
+      this.updateErrorCount();
+      this.showStatus('');
+    }
+
+    highlightErrors(errors: any[], textNodes: any[]) {
+      errors.forEach(error => {
+        // Find the text node that contains this error
+        const textNode = this.findTextNodeForError(error, textNodes);
+        if (textNode) {
+          this.highlightErrorInNode(error, textNode);
+        }
+      });
+    }
+
+    findTextNodeForError(error: any, textNodes: any[]) {
+      return textNodes.find(node => 
+        error.start >= node.start && error.end <= node.end
+      );
+    }
+
+    highlightErrorInNode(error: any, textNode: any) {
+      const { node, start: nodeStart } = textNode;
+      const parent = node.parentNode;
+      
+      if (!parent) return;
+
+      const localStart = error.start - nodeStart;
+      const localEnd = error.end - nodeStart;
+      
+      const beforeText = node.textContent.substring(0, localStart);
+      const errorText = node.textContent.substring(localStart, localEnd);
+      const afterText = node.textContent.substring(localEnd);
+
+      // Create highlight element
+      const highlightSpan = document.createElement('span');
+      highlightSpan.className = 'spell-error';
+      highlightSpan.textContent = errorText;
+      highlightSpan.setAttribute('data-suggestions', JSON.stringify(error.suggestions));
+      highlightSpan.setAttribute('data-word', error.word);
+      
+      // Add click event
+      highlightSpan.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.showSuggestions(highlightSpan, error);
+      });
+
+      // Replace the text node with highlighted version
+      const beforeNode = document.createTextNode(beforeText);
+      const afterNode = document.createTextNode(afterText);
+      
+      parent.insertBefore(beforeNode, node);
+      parent.insertBefore(highlightSpan, node);
+      parent.insertBefore(afterNode, node);
+      parent.removeChild(node);
+
+      this.highlightedElements.push(highlightSpan);
+    }
+
+    showSuggestions(element: HTMLElement, error: any) {
+      // Remove existing suggestion panels
+      document.querySelectorAll('.spell-suggestion-panel').forEach(panel => panel.remove());
+
+      const panel = document.createElement('div');
+      panel.className = 'spell-suggestion-panel fixed bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg z-50 p-3 max-w-xs';
+      
+      // Position panel near the clicked element
+      const rect = element.getBoundingClientRect();
+      panel.style.left = `${rect.left}px`;
+      panel.style.top = `${rect.bottom + 5}px`;
+
+      // Create suggestions content
+      let content = `<div class="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">${error.message || `Suggestions for "${error.word}"`}:</div>`;
+      
+      if (error.suggestions && error.suggestions.length > 0) {
+        error.suggestions.forEach((suggestion: string) => {
+          content += `<button class="block w-full text-left px-2 py-1 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded suggestion-btn" data-suggestion="${suggestion}">${suggestion}</button>`;
+        });
+      } else {
+        content += `<div class="text-sm text-gray-500 dark:text-gray-400">No suggestions available</div>`;
+      }
+      
+      content += `<hr class="my-2">`;
+      content += `<button class="block w-full text-left px-2 py-1 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded ignore-btn">Ignore</button>`;
+      content += `<button class="block w-full text-left px-2 py-1 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded add-dict-btn">Add to dictionary</button>`;
+
+      panel.innerHTML = content;
+
+      // Add event listeners
+      panel.querySelectorAll('.suggestion-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          this.applySuggestion(element, (btn as HTMLElement).dataset.suggestion!);
+          panel.remove();
+        });
+      });
+
+      panel.querySelector('.ignore-btn')?.addEventListener('click', () => {
+        this.ignoreError(element);
+        panel.remove();
+      });
+
+      panel.querySelector('.add-dict-btn')?.addEventListener('click', () => {
+        this.addToDictionary(element, error.word);
+        panel.remove();
+      });
+
+      document.body.appendChild(panel);
+
+      // Close panel when clicking outside
+      setTimeout(() => {
+        document.addEventListener('click', function closePanel(e: Event) {
+          if (!panel.contains(e.target as Node) && e.target !== element) {
+            panel.remove();
+            document.removeEventListener('click', closePanel);
+          }
+        });
+      }, 100);
+    }
+
+    applySuggestion(element: HTMLElement, suggestion: string) {
+      element.textContent = suggestion;
+      element.classList.remove('spell-error');
+      element.classList.add('spell-corrected');
+    }
+
+    ignoreError(element: HTMLElement) {
+      element.classList.remove('spell-error');
+      element.classList.add('spell-ignored');
+    }
+
+    addToDictionary(element: HTMLElement, word: string) {
+      if (this.spellChecker) {
+        this.spellChecker.addToCustomDictionary(word);
+      }
+      element.classList.remove('spell-error');
+      element.classList.add('spell-added-to-dict');
+    }
+
+    clearHighlights() {
+      this.highlightedElements.forEach(element => {
+        const parent = element.parentNode;
+        if (parent) {
+          parent.replaceChild(document.createTextNode(element.textContent || ''), element);
+          parent.normalize(); // Merge adjacent text nodes
+        }
+      });
+      this.highlightedElements = [];
+      
+      // Remove any suggestion panels
+      document.querySelectorAll('.spell-suggestion-panel').forEach(panel => panel.remove());
+    }
+
+    updateToggleUI() {
+      if (this.isActive) {
+        this.toggleButton?.classList.add('active');
+        if (this.spellCheckText) this.spellCheckText.textContent = 'Spell Check: ON';
+      } else {
+        this.toggleButton?.classList.remove('active');
+        if (this.spellCheckText) this.spellCheckText.textContent = 'Spell Check';
+      }
+    }
+
+    updateErrorCount() {
+      if (this.errorCount) {
+        const count = this.errors.length;
+        this.errorCount.textContent = count.toString();
+        
+        if (count > 0 && this.isActive) {
+          this.errorCount.classList.remove('hidden');
+        } else {
+          this.errorCount.classList.add('hidden');
+        }
+      }
+    }
+
+    setLoading(loading: boolean) {
+      this.isLoading = loading;
+      
+      if (loading) {
+        this.toggleButton?.setAttribute('disabled', 'true');
+        this.loadingIndicator?.classList.remove('hidden');
+      } else {
+        this.toggleButton?.removeAttribute('disabled');
+        this.loadingIndicator?.classList.add('hidden');
+      }
+    }
+
+    showStatus(message: string, type: string = 'info') {
+      if (!this.statusElement) return;
+      
+      this.statusElement.textContent = message;
+      const statusContainer = this.statusElement.parentElement?.parentElement;
+      const statusInner = this.statusElement.parentElement;
+      
+      if (message) {
+        statusContainer?.classList.remove('hidden');
+        
+        // Remove all type classes
+        statusInner?.classList.remove('success', 'warning', 'error', 'info');
+        // Add new type class
+        statusInner?.classList.add(type);
+      } else {
+        statusContainer?.classList.add('hidden');
+      }
+    }
+
+    handleErrorClick(detail: any) {
+      // Handle custom error click events if needed
+      console.log('Error clicked:', detail);
+    }
+  }
+
+  // Initialize when DOM is loaded
+  document.addEventListener('DOMContentLoaded', () => {
+    new SpellCheckToggle();
+  });
+</script>
+
+<style is:global>
+  .spell-error {
+    background-color: rgb(239 68 68 / 0.2);
+    border-bottom: 2px wavy #ef4444;
+    cursor: pointer;
+    padding: 1px 2px;
+    border-radius: 2px;
+  }
+
+  .spell-error:hover {
+    background-color: rgb(239 68 68 / 0.3);
+  }
+
+  .spell-corrected {
+    background-color: rgb(34 197 94 / 0.2);
+    border-bottom: 2px solid #22c55e;
+    padding: 1px 2px;
+    border-radius: 2px;
+  }
+
+  .spell-ignored {
+    opacity: 0.7;
+  }
+
+  .spell-added-to-dict {
+    background-color: rgb(59 130 246 / 0.2);
+    border-bottom: 2px solid #3b82f6;
+    padding: 1px 2px;
+    border-radius: 2px;
+  }
+</style> 
