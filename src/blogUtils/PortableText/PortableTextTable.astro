@@ -1,0 +1,24 @@
+---
+const { node } = Astro.props;
+---
+
+<div class="w-full overflow-scroll">
+  <table>
+    {
+      node.rows.map((row: any, index: number) => {
+        return (
+          <tr
+            class={`border p-2 ${index == 0 ? " bg-[#d3d3d3] font-semibold" : ""}`}
+          >
+            {row.cells.map((cell: any) => {
+              return (
+                <td class="border p-2 text-[16px] min-w-[200px]">{cell}</td>
+              );
+            })}
+          </tr>
+        );
+      })
+    }
+  </table>
+</div>
+<style></style>

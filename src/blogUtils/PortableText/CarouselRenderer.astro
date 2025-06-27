@@ -1,0 +1,32 @@
+---
+import imageUrlBuilder from "@sanity/image-url";
+import { client } from "../sanity";
+import NewCarousel from "../../components/NewCarousel.astro";
+import { formatImage } from "../sanity";
+
+const builder = imageUrlBuilder(client);
+
+const { node } = Astro.props;
+
+function urlFor(source: any) {
+  return builder.image(source);
+}
+---
+
+<div class="w-full flex justify-center items-center lg:mb-[30px]">
+  <div class="w-full md:px-[20px] max-h-[600px]">
+    <NewCarousel isInfinite={true} showButtons={true}>
+      {
+        node?.images.map((item: any) => (
+          <div>
+            <img
+              src={formatImage(urlFor(item?.image).url())}
+              alt={item?.alt}
+              class="object-cover rounded-[10px] md:rounded-[20px] w-[270px] md:w-[500px] h-[300px] md:h-[500px] border-2 border-juspayBlue-dark"
+            />
+          </div>
+        ))
+      }
+    </NewCarousel>
+  </div>
+</div>

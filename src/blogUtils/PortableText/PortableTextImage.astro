@@ -1,0 +1,26 @@
+---
+import imageUrlBuilder from "@sanity/image-url";
+import { client } from "../sanity";
+
+const builder = imageUrlBuilder(client);
+
+const { node } = Astro.props;
+function urlFor(source: any) {
+  return builder.image(source);
+}
+
+const imgURL = urlFor(node).url();
+const imgId = `img-${node.asset._ref.split("-")[1]}`;
+---
+
+<div class="zoomable-image-container p-0 m-0" data-img-id={imgId}>
+  <div
+    class="w-full h-auto overflow-hidden flex justify-center items-center my-[30px] md:-my-[20px]"
+  >
+    <img
+      src={imgURL}
+      alt={node.altText || ""}
+      class="w-full h-full object-cover rounded-[10px] md:cursor-zoom-in blog-image"
+    />
+  </div>
+</div>

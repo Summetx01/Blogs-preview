@@ -1,0 +1,248 @@
+---
+import ShareButtons from "./ShareButtons.astro";
+
+interface Props {
+  headings: any[];
+  articleLink: string;
+  customHeading: string;
+  showHighLights?: boolean;
+}
+
+const {
+  headings,
+  articleLink,
+  customHeading,
+  showHighLights = true,
+} = Astro.props;
+---
+
+<div class="toc">
+  <slot />
+  <ShareButtons articleLink={articleLink} />
+
+  {
+    showHighLights && (
+      <div class="toc-container">
+        <div class="toc-heading">{customHeading}</div>
+        <div class="toc-items">
+          {headings.map((heading) => (
+            <a
+              onclick={`scrollToTargetAdjusted("${heading.id}")`}
+              class="heading-item"
+            >
+              <div
+                class="heading-title text-[16px] no-strong"
+                id={`${heading.id}-title`}
+                set:html={heading.title}
+              />
+              <div class="toc-divider" />
+            </a>
+          ))}
+        </div>
+      </div>
+    )
+  }
+</div>
+
+<script is:inline>
+  function scrollToTargetAdjusted(id) {
+    var element = document.getElementById(id);
+    var headerOffset = 140;
+    var elementPosition = element.getBoundingClientRect().top;
+    var offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: "smooth",
+    });
+  }
+
+  function throttle(func, limit) {
+    let lastFunc;
+    let lastRan;
+
+    return function () {
+      const context = this;
+      const args = arguments;
+
+      if (!lastRan) {
+        func.apply(context, args);
+        lastRan = Date.now();
+      } else {
+        clearTimeout(lastFunc);
+        lastFunc = setTimeout(
+          () => {
+            if (Date.now() - lastRan >= limit) {
+              func.apply(context, args);
+              lastRan = Date.now();
+            }
+          },
+          limit - (Date.now() - lastRan),
+        );
+      }
+    };
+  }
+
+  function initIntersectionDetection() {
+    const marker = document.createElement("div");
+    marker.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 60vh;
+      z-index: 1000;
+      pointer-events: none;
+    `;
+    document.body.appendChild(marker);
+    const windowHeight = window.innerHeight;
+
+    // Get all headings and their corresponding TOC titles
+    const headings = document.querySelectorAll("h2");
+
+    let lastActiveTitle = null;
+
+    function checkIntersections() {
+      const markerPosition = 0;
+
+      headings.forEach((heading) => {
+        const rect = heading.getBoundingClientRect();
+        const isIntersecting = rect.top <= markerPosition + windowHeight * 0.6;
+
+        // Find corresponding title and subtitle in TOC
+        const headingId = heading.id;
+        const tocTitle = document.getElementById(`${headingId}-title`);
+        const tocSubtitle = document.getElementById(
+          `${headingId}-subtitle`.trim(),
+        );
+
+        if (isIntersecting) {
+          if (tocTitle) {
+            console.log(tocTitle);
+
+            tocTitle.classList.remove("text-[#696969]");
+            tocTitle.classList.add("text-[#0099ff]");
+            if (lastActiveTitle) {
+              if (lastActiveTitle.id !== tocTitle.id) {
+                lastActiveTitle.classList.remove("text-[#0099ff]");
+                lastActiveTitle.classList.add("text-[#696969]");
+              }
+            }
+
+            lastActiveTitle = tocTitle;
+          }
+        } else {
+          // Remove highlights
+          //   heading.classList.remove("text-[#ff0000]");
+
+          if (tocTitle) {
+            tocTitle.classList.remove("text-[#0099ff]");
+            tocTitle.classList.add("text-[#696969]");
+          }
+        }
+      });
+    }
+
+    const throttledCheckIntersections = throttle(checkIntersections, 200);
+
+    // Add scroll event listener
+    window.addEventListener("scroll", throttledCheckIntersections, {
+      passive: true,
+    });
+
+    // Initial check
+    checkIntersections();
+
+    // Return cleanup function
+    return () => {
+      window.removeEventListener("scroll", checkIntersections);
+      marker.remove();
+    };
+  }
+
+  window.addEventListener("DOMContentLoaded", initIntersectionDetection);
+</script>
+
+<style>
+  .toc {
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 120px;
+  }
+  .toc-container {
+    padding: 20px;
+    border: 1px solid #f0f0f0;
+    border-radius: 8px;
+    width: 100%;
+    max-height: 500px;
+    overflow-y: scroll;
+  }
+  .toc-heading {
+    font-style: normal;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 20px;
+    color: var(--neutral-900);
+    margin-bottom: 24px;
+  }
+
+  .heading-item:last-of-type .toc-divider {
+    display: none;
+  }
+
+  .toc-items > .toc-divider {
+    display: none;
+  }
+
+  .toc-divider {
+    border: 0.75px solid #f0f0f0;
+    flex: none;
+    margin: 14px 0;
+    width: 100%;
+  }
+
+  .heading-item {
+    display: flex;
+    flex-direction: column;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--neutral-700);
+    text-decoration: none;
+    transition: margin-left 0.3s ease-in-out;
+    cursor: pointer;
+  }
+
+  .heading-item:hover {
+    color: #0099ff;
+    transition: margin-left 0.3s ease-in-out;
+  }
+
+  /* .heading-title {
+    color: #696969;
+    font-size: 15px;
+  } */
+
+  @media only screen and (max-width: 1023px) {
+    .toc-container {
+      display: none;
+    }
+  }
+
+  @media only screen and (max-width: 984px) {
+    .toc {
+      align-items: center;
+      padding: 0;
+    }
+  }
+
+  @media only screen and (max-width: 768px) {
+    .toc {
+      display: none;
+    }
+  }
+</style>
+
+<style is:global></style>

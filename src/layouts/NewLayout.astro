@@ -1,0 +1,157 @@
+---
+import "../styles/global.css";
+import "./Layout.css";
+
+
+interface Props {
+  id?: string;
+  title: string;
+  eventName?: string;
+  buttonName?: string;
+  buttonLink?: string;
+  description?: string;
+  mimicStickyViaFixed?: boolean;
+  htmlLanguage?: string;
+  navLightMode?: boolean;
+  footerCustomBg?: string;
+  footerLightMode?: boolean;
+  canonicalUrl?: string;
+  ogImage?: string;
+  xDefaultURL?: string | null;
+  alternatePages?: string[];
+  canonicalPage?: string;
+  disableRegionSwitch?: boolean;
+  footerCustomClass?: string;
+  shouldScrollToTop?: boolean;
+  region?: string | null;
+  additionalSchemaType?: "Product" | "Blog";
+  blogDetails?: {
+    headLine: string;
+    image: string;
+    datePublished: string;
+    dateModified: string;
+    author: {
+      name: string;
+      linkedIn: string;
+    };
+    description: string;
+    slug: string;
+  } | null;
+}
+
+const {
+  id,
+  title,
+  eventName,
+  buttonName,
+  description,
+  footerCustomBg,
+  buttonLink,
+  mimicStickyViaFixed = false,
+  navLightMode = true,
+  footerLightMode = true,
+  canonicalUrl = "",
+  ogImage,
+  alternatePages,
+  canonicalPage,
+  disableRegionSwitch,
+  footerCustomClass = "",
+  shouldScrollToTop = true,
+  region = null,
+  additionalSchemaType,
+  blogDetails = null,
+  xDefaultURL = null,
+  htmlLanguage = "en",
+} = Astro.props;
+const host = "https://juspay.io";
+
+---
+
+<!doctype html>
+<html lang={htmlLanguage} translate="no">
+  <head>
+    <meta charset="UTF-8" />
+
+
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,minimum-scale=1"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.png" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+
+  </head>
+  <body>
+    <div id={id} class="w-full relative">
+      <main id="main" class="overflow-hidden">
+        <slot />
+      </main>
+    </div>
+    <script
+      is:inline
+      define:vars={{
+        shouldScrollToTop,
+      }}
+    >
+      window.onload = function () {
+        if (shouldScrollToTop) {
+          document.body.scrollTop = document.documentElement.scrollTop = 0;
+          window.scrollTo({ top: 0, behavior: "auto" });
+        }
+      };
+      let navElem = document.getElementById("elem-nav");
+      let bodyElem = document.getElementsByTagName("body")[0];
+      let prevScroll = 0;
+      document.addEventListener("scroll", (e) => {
+        let yPosition = bodyElem.getBoundingClientRect().y * -1;
+        if (navElem) {
+          if (
+            yPosition - navElem?.offsetHeight <= 24 &&
+            yPosition - navElem?.offsetHeight >= -99
+          ) {
+            navElem.style.top = `-${Math.min(yPosition - navElem?.offsetHeight + 99, 24)}px`;
+          }
+          if (yPosition - prevScroll > 24) {
+            navElem.style.top = `-24px`;
+          }
+
+          if (yPosition - prevScroll < 0 && yPosition < 24) {
+            navElem.style.top = `0px`;
+          }
+        }
+
+        prevScroll = yPosition;
+      });
+    </script>
+
+  </body><style is:global>
+    :root {
+    }
+    html {
+      font-family: "General Sans", system-ui, sans-serif;
+    }
+    code {
+      font-family:
+        Menlo,
+        Monaco,
+        Lucida Console,
+        Liberation Mono,
+        DejaVu Sans Mono,
+        Bitstream Vera Sans Mono,
+        Courier New,
+        monospace;
+    }
+
+    /* For Chrome, Safari and Opera */
+    *::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* For IE, Edge and Firefox */
+    * {
+      -ms-overflow-style: none; /* IE and Edge */
+      scrollbar-width: none; /* Firefox */
+    }
+  </style>
+</html>

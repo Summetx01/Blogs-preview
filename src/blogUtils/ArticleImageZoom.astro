@@ -1,0 +1,169 @@
+---
+
+---
+
+<div
+  id="zoom-modal"
+  class="fixed inset-0 bg-[#000]/30 backdrop-blur-sm flex justify-center items-center opacity-0 invisible transition-all duration-300 ease-in-out"
+  style="z-index: 9999;"
+>
+  <button
+    class="absolute top-5 right-5 bg-[#fff] backdrop-blur-sm rounded-full w-10 h-10 md:w-12 md:h-12 flex justify-center items-center cursor-pointer opacity-0 scale-90 transition-all duration-300 ease-in-out"
+    id="zoom-close-button"
+  >
+    <img src="/cross.svg" alt="Close" />
+  </button>
+  <div
+    class="w-screen h-screen flex justify-center items-center"
+    id="zoom-container"
+  >
+    <img
+      src=""
+      alt="Zoomed image"
+      class="max-w-full max-h-full object-contain opacity-0 scale-90 transition-all duration-300 ease-in-out"
+      id="zoomed-image"
+    />
+  </div>
+</div>
+
+<script define:vars="">
+  function dispatchCustomEvent(state) {
+    const event = new CustomEvent("imgzoom", {
+      detail: { state },
+    });
+    document.dispatchEvent(event);
+  }
+
+  function setupArticleImageZoom() {
+    const modal = document.getElementById("zoom-modal");
+    const closeButton = document.getElementById("zoom-close-button");
+    const zoomedImg = document.getElementById("zoomed-image");
+    const zoomContainer = document.getElementById("zoom-container");
+
+    if (zoomContainer) {
+      zoomContainer.addEventListener("click", (e) => {
+        if (e.target === zoomContainer) {
+          closeModal();
+        }
+      });
+    }
+
+    if (!modal || !closeButton || !zoomedImg) return;
+
+    function openModal(imgSrc, originalWidth, originalHeight) {
+      if (!modal || !zoomedImg) return;
+
+      zoomedImg.src = imgSrc;
+      modal.classList.remove("invisible", "opacity-0");
+      document.body.style.overflow = "hidden";
+
+      if (originalWidth && originalHeight) {
+        const aspectRatio = originalWidth / originalHeight;
+        const maxWidth = window.innerWidth * 0.8;
+        const maxHeight = window.innerHeight * 0.8;
+
+        if (maxWidth / aspectRatio <= maxHeight) {
+          zoomedImg.style.width = maxWidth + "px";
+          zoomedImg.style.height = "auto";
+        } else {
+          zoomedImg.style.width = "auto";
+          zoomedImg.style.height = maxHeight + "px";
+        }
+      }
+
+      setTimeout(() => {
+        zoomedImg.classList.remove("opacity-0", "scale-90");
+        closeButton.classList.remove("opacity-0", "scale-90");
+      }, 50);
+
+      dispatchCustomEvent("open");
+    }
+
+    function closeModal() {
+      if (!modal) return;
+
+      zoomedImg.classList.add("opacity-0", "scale-90");
+      closeButton.classList.add("opacity-0", "scale-90");
+
+      setTimeout(() => {
+        modal.classList.add("invisible", "opacity-0");
+        document.body.style.overflow = "";
+        zoomedImg.src = "";
+      }, 300);
+
+      dispatchCustomEvent("close");
+    }
+
+    function processArticleImages() {
+      const articles = document.getElementsByTagName("article");
+
+      Array.from(articles).forEach((article) => {
+        const images = Array.from(article.getElementsByTagName("img")).filter(
+          (img) => !img.classList.contains("no-zoom"),
+        );
+
+        images.forEach((img) => {
+          function handleOpenModal() {
+            const rect = img.getBoundingClientRect();
+            openModal(img.src, rect.width, rect.height);
+          }
+          if (window.innerWidth >= 768) {
+            img.classList.add("md:cursor-zoom-in");
+
+            if (
+              !img.parentElement.classList.contains("zoomable-image-wrapper")
+            ) {
+              const wrapper = document.createElement("div");
+              wrapper.className =
+                "w-full overflow-hidden flex justify-center items-center my-[30px] md:my-[40px] zoomable-image-wrapper";
+              img.parentNode.insertBefore(wrapper, img);
+              wrapper.appendChild(img);
+            }
+
+            img.addEventListener("click", handleOpenModal);
+          } else {
+            img.removeEventListener("click", handleOpenModal);
+          }
+          window.addEventListener("resize", () => {
+            if (window.innerWidth < 768) {
+              closeModal();
+              img.removeEventListener("click", handleOpenModal);
+            } else {
+              img.addEventListener("click", handleOpenModal);
+            }
+          });
+        });
+      });
+    }
+
+    closeButton.addEventListener("click", closeModal);
+
+    let startY;
+    modal.addEventListener("touchstart", (e) => {
+      startY = e.touches[0].clientY;
+    });
+
+    modal.addEventListener("touchmove", (e) => {
+      const currentY = e.touches[0].clientY;
+      if (Math.abs(currentY - startY) > 50) {
+        closeModal();
+      }
+    });
+
+    modal.addEventListener("wheel", () => {
+      if (!modal.classList.contains("invisible")) {
+        closeModal();
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeModal();
+      }
+    });
+
+    processArticleImages();
+  }
+
+  document.addEventListener("DOMContentLoaded", setupArticleImageZoom);
+</script>

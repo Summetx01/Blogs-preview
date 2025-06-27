@@ -1,0 +1,338 @@
+---
+interface Props {
+  isInfinite?: boolean;
+  autoplayInterval?: number;
+  showButtons?: boolean;
+  alternateAnimation?: boolean;
+  fireCustomEvent?: boolean;
+  direction?: "horizontal" | "vertical";
+  activeStateStyle?: { [key: string]: string };
+  inActiveStateStyle?: { [key: string]: string };
+  pauseOnHover?: boolean;
+  customButtonClass?: string;
+  customButtonIcon?: string;
+  customIconClass?: string;
+  buttonPosition?: "middle" | "below";
+}
+
+const {
+  isInfinite = false,
+  autoplayInterval = 5000,
+  showButtons = true,
+  alternateAnimation = false,
+  fireCustomEvent = false,
+  direction = "horizontal",
+  activeStateStyle = {},
+  inActiveStateStyle = {},
+  pauseOnHover = false,
+  customButtonClass,
+  customButtonIcon,
+  customIconClass,
+  buttonPosition = "middle",
+} = Astro.props;
+
+const carouselId = "carousel-" + Math.random().toString(36).slice(2, 11);
+---
+
+<div
+  id={carouselId}
+  class={`carousel-container relative w-full h-full flex ${
+    direction === "horizontal" ? "items-center" : "flex-col"
+  }`}
+>
+  <div class="overflow-hidden">
+    <div
+      class={`carousel-track flex ${
+        direction === "horizontal" ? "items-center" : "flex-col"
+      } transition-transform duration-500 ease-in-out`}
+    >
+      <slot />
+    </div>
+    {
+      showButtons && (
+        <>
+          <button
+            aria-label="previous slide"
+            class={`carousel-btn prev-btn ${
+              buttonPosition === "middle"
+                ? "absolute top-1/2 left-1 transform -translate-y-1/2"
+                : "mt-4 mx-2"
+            } z-10 hover:scale-105 transition-transform duration-150 ease-in-out ${customButtonClass ? `${customButtonClass} xl:left-28` : "rounded-full p-2 bg-textColor-para bg-opacity-50 lg:left-[20px]"}`}
+          >
+            <img
+              src={`${customButtonIcon ? customButtonIcon : "/hypercheckout/chevronright.svg"} `}
+              alt=""
+              class={`no-zoom object-cover rotate-180 ${customIconClass ? customIconClass : "w-[20px] h-[20px] md:w-[24px] md:h-[24px] lg:w-[32px] lg:h-[32px]"}`}
+            />
+          </button>
+          <button
+            aria-label="next slide"
+            class={`carousel-btn next-btn ${
+              buttonPosition === "middle"
+                ? "absolute top-1/2 right-1 transform -translate-y-1/2"
+                : "mt-4 mx-2"
+            } z-10 hover:scale-105 transition-transform duration-150 ease-in-out ${customButtonClass ? `${customButtonClass} xl:right-28` : "rounded-full p-2 bg-textColor-para bg-opacity-50 lg:right-[20px]"}`}
+          >
+            <img
+              src={`${customButtonIcon ? customButtonIcon : "/hypercheckout/chevronright.svg"} `}
+              alt=""
+              class={`no-zoom object-cover ${customIconClass ? customIconClass : "w-[20px] h-[20px] md:w-[24px] md:h-[24px] lg:w-[32px] lg:h-[32px]"}`}
+            />
+          </button>
+        </>
+      )
+    }
+  </div>
+</div>
+
+<style>
+  .carousel-track {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+  }
+
+  .carousel-track > :global(*) {
+    flex-shrink: 0;
+    transition:
+      all 0.5s ease-in-out,
+      border 0s;
+  }
+</style>
+
+<script
+  define:vars={{
+    carouselId,
+    isInfinite,
+    autoplayInterval,
+    showButtons,
+    alternateAnimation,
+    fireCustomEvent,
+    direction,
+    activeStateStyle,
+    inActiveStateStyle,
+    pauseOnHover,
+  }}
+>
+  function dispatchCustomEvent(currentIndex) {
+    const event = new CustomEvent("slideChange", {
+      detail: { currentIndex, carouselId },
+    });
+    document.dispatchEvent(event);
+  }
+
+  function setupCarousel(carouselId) {
+    const container = document.getElementById(carouselId);
+    const track = container.querySelector(".carousel-track");
+    const items = Array.from(track.children);
+    const prevBtn = showButtons ? container.querySelector(".prev-btn") : null;
+    const nextBtn = showButtons ? container.querySelector(".next-btn") : null;
+    let currentIndex = 0;
+    let intervalId;
+    let animationDirection = "right";
+    let pauseAutoplay = false;
+
+    const cloneCount = 2;
+
+    if (isInfinite) {
+      const clonesStart = items
+        .slice(-cloneCount)
+        .map((item) => item.cloneNode(true));
+      const clonesEnd = items
+        .slice(0, cloneCount)
+        .map((item) => item.cloneNode(true));
+
+      clonesStart.forEach((clone) => track.insertBefore(clone, items[0]));
+      clonesEnd.forEach((clone) => track.appendChild(clone));
+
+      currentIndex = cloneCount;
+    }
+
+    function updateCarousel(instant = false) {
+      if (fireCustomEvent && !instant) {
+        dispatchCustomEvent(currentIndex);
+      }
+
+      const containerSize =
+        direction === "horizontal"
+          ? container.offsetWidth
+          : container.offsetHeight;
+      const activeItem = track.children[currentIndex];
+      const activeItemSize =
+        direction === "horizontal"
+          ? activeItem.offsetWidth
+          : activeItem.offsetHeight;
+      const offset =
+        (containerSize - activeItemSize) / 2 -
+        (direction === "horizontal"
+          ? activeItem.offsetLeft
+          : activeItem.offsetTop);
+
+      if (instant) {
+        track.style.transition = "none";
+        track.style.transform =
+          direction === "horizontal"
+            ? `translateX(${offset}px)`
+            : `translateY(${offset}px)`;
+        track.offsetHeight;
+        track.style.transition = "transform 0.5s ease-in-out";
+      } else {
+        track.style.transform =
+          direction === "horizontal"
+            ? `translateX(${offset}px)`
+            : `translateY(${offset}px)`;
+      }
+
+      if (direction === "horizontal") {
+        Array.from(track.children).forEach((item, index) => {
+          if (
+            index === currentIndex ||
+            (isFinite && index === currentIndex - items.length)
+          ) {
+            item.style.transform = "scale(1)";
+            item.style.opacity = "1";
+            Object.keys(inActiveStateStyle).forEach((key) => {
+              item.style.removeProperty(key);
+            });
+            Object.keys(activeStateStyle).forEach((key) => {
+              item.style[key] = activeStateStyle[key];
+            });
+          } else {
+            item.style.transform = "scale(0.8)";
+            item.style.opacity = "0.7";
+            Object.keys(activeStateStyle).forEach((key) => {
+              item.style.removeProperty(key);
+            });
+            Object.keys(inActiveStateStyle).forEach((key) => {
+              item.style[key] = inActiveStateStyle[key];
+            });
+          }
+        });
+      }
+    }
+
+    function moveNext() {
+      if (isInfinite) {
+        currentIndex++;
+        updateCarousel();
+        if (currentIndex >= track.children.length - cloneCount) {
+          setTimeout(() => {
+            currentIndex = cloneCount;
+            updateCarousel(true);
+          }, 500);
+        }
+      } else {
+        currentIndex = (currentIndex + 1) % items.length;
+        updateCarousel();
+      }
+    }
+
+    function movePrev() {
+      if (isInfinite) {
+        currentIndex--;
+        updateCarousel();
+        if (currentIndex < cloneCount) {
+          setTimeout(() => {
+            currentIndex = track.children.length - cloneCount - 1;
+            updateCarousel(true);
+          }, 500);
+        }
+      } else {
+        currentIndex = (currentIndex - 1 + items.length) % items.length;
+        updateCarousel();
+      }
+    }
+
+    function updateSlideforAutoplay() {
+      if (alternateAnimation) {
+        if (currentIndex === track.children.length - 1)
+          animationDirection = "left";
+        else if (currentIndex === 0) animationDirection = "right";
+        if (animationDirection === "right") {
+          moveNext();
+        } else {
+          movePrev();
+        }
+      } else {
+        moveNext();
+      }
+    }
+
+    function startAutoplay() {
+      if (intervalId) clearInterval(intervalId);
+
+      intervalId = setInterval(() => {
+        updateSlideforAutoplay();
+      }, autoplayInterval);
+    }
+
+    if (showButtons) {
+      nextBtn.addEventListener("click", () => {
+        moveNext();
+        startAutoplay();
+      });
+
+      prevBtn.addEventListener("click", () => {
+        movePrev();
+        startAutoplay();
+      });
+    }
+
+    updateCarousel();
+    startAutoplay();
+
+    let timeoutId;
+
+    if (pauseOnHover && container) {
+      container.addEventListener("mouseover", () => {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      });
+      container.addEventListener("mouseleave", () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+
+        timeoutId = setTimeout(() => {
+          updateSlideforAutoplay();
+        }, 500);
+        startAutoplay();
+      });
+    }
+
+    document.addEventListener("imgzoom", (e) => {
+      const state = e.detail.state;
+      if (state === "open") {
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = null;
+        }
+      } else {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+
+        timeoutId = setTimeout(() => {
+          updateSlideforAutoplay();
+        }, 500);
+        startAutoplay();
+      }
+    });
+    const resizeHandler = () => updateCarousel();
+    window.addEventListener("resize", resizeHandler);
+
+    return () => {
+      if (showButtons) {
+        nextBtn.removeEventListener("click", moveNext);
+        prevBtn.removeEventListener("click", movePrev);
+      }
+      stopAutoplay();
+      window.removeEventListener("resize", resizeHandler);
+    };
+  }
+
+  setupCarousel(carouselId);
+</script>

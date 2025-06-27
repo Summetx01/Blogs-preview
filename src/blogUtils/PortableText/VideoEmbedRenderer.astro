@@ -1,0 +1,37 @@
+---
+const { node } = Astro.props;
+
+const getYouTubeId = (url: string) => {
+  try {
+    const match = url.match(
+      /(?:youtube\.com\/.*v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    );
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+};
+
+const videoId = getYouTubeId(node.videoUrl);
+---
+
+<div class="w-full flex justify-center items-center my-10">
+  <div class="w-full md:px-[20px] max-h-[600px]">
+    {
+      videoId ? (
+        <div class="relative w-full pb-[56.25%] h-0 overflow-hidden bg-neutrals-600">
+          <iframe
+            class="absolute top-0 left-0 w-full h-full border-0"
+            src={`https://www.youtube.com/embed/${videoId}`}
+            title="YouTube video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen
+            loading="lazy"
+          />
+        </div>
+      ) : (
+        <p>Invalid YouTube URL</p>
+      )
+    }
+  </div>
+</div>

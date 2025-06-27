@@ -1,11 +1,125 @@
 ---
-import Welcome from '../components/Welcome.astro';
 import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+// Any server-side logic can go here
 ---
 
 <Layout>
-	<Welcome />
+  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div class="min-h-screen flex items-center justify-center px-4">
+      <div class="w-full max-w-md">
+        <!-- Main container with glass morphism effect -->
+        <div class="bg-white/10 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/20">
+          <!-- Header -->
+          <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-2">
+              Blog Preview
+            </h1>
+            <p class="text-gray-300 text-lg">
+              Enter a blog slug to preview
+            </p>
+          </div>
+
+          <!-- Input form -->
+          <form id="blog-form" class="space-y-6">
+            <div class="relative">
+              <label for="blog-slug" class="block text-sm font-medium text-gray-300 mb-2">
+                Blog Slug
+              </label>
+              <input
+                type="text"
+                id="blog-slug"
+                name="blog-slug"
+                placeholder="my-awesome-blog-post"
+                class="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
+                required
+              />
+              <div class="absolute inset-y-0 right-0 top-6 flex items-center pr-3 pointer-events-none">
+                <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                </svg>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              class="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-transparent shadow-lg"
+            >
+              Preview Blog
+            </button>
+          </form>
+
+          <!-- Optional: Recent blogs section -->
+          <div class="mt-8 pt-6 border-t border-white/10">
+            <p class="text-sm text-gray-400 text-center mb-3">Quick access</p>
+            <div class="flex flex-wrap gap-2 justify-center">
+              <button class="px-3 py-1 text-xs bg-white/5 text-gray-300 rounded-full hover:bg-white/10 transition-all duration-200 border border-white/10">
+                sample-post
+              </button>
+              <button class="px-3 py-1 text-xs bg-white/5 text-gray-300 rounded-full hover:bg-white/10 transition-all duration-200 border border-white/10">
+                getting-started
+              </button>
+              <button class="px-3 py-1 text-xs bg-white/5 text-gray-300 rounded-full hover:bg-white/10 transition-all duration-200 border border-white/10">
+                latest-update
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Floating particles background effect -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+          <div class="absolute -top-4 -left-4 w-72 h-72 bg-purple-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse"></div>
+          <div class="absolute -bottom-8 -right-4 w-72 h-72 bg-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-pulse animation-delay-2000"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Handle form submission
+    const form = document.getElementById('blog-form') as HTMLFormElement;
+    form?.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const slugInput = document.getElementById('blog-slug') as HTMLInputElement;
+      const slug = slugInput?.value;
+      if (slug) {
+        // Navigate to blog preview page (adjust URL as needed)
+        window.location.href = `/blog/${slug}`;
+      }
+    });
+
+    // Handle quick access buttons
+    document.querySelectorAll('button[class*="px-3"]').forEach((button: Element) => {
+      (button as HTMLButtonElement).addEventListener('click', function(this: HTMLButtonElement) {
+        const slug = this.textContent?.trim();
+        const slugInput = document.getElementById('blog-slug') as HTMLInputElement;
+        if (slug && slugInput) {
+          slugInput.value = slug;
+        }
+      });
+    });
+
+    // Add some interactive animations
+    const input = document.getElementById('blog-slug') as HTMLInputElement;
+    input?.addEventListener('focus', function(this: HTMLInputElement) {
+      this.parentElement?.classList.add('scale-105');
+    });
+    input?.addEventListener('blur', function(this: HTMLInputElement) {
+      this.parentElement?.classList.remove('scale-105');
+    });
+  </script>
+
+  <style>
+    .animation-delay-2000 {
+      animation-delay: 2s;
+    }
+    
+    /* Custom gradient animation */
+    @keyframes gradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+  </style>
 </Layout>
+
+

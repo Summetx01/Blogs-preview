@@ -1,0 +1,168 @@
+---
+interface Props {
+  articleLink: string;
+}
+
+const { articleLink } = Astro.props;
+
+---
+
+<div class="share-buttons">
+  <div class="share-buttons-heading">Share</div>
+  <div class="button-row">
+    <a
+      class="button"
+      href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
+        articleLink,
+      )}`}
+      target="_blank"
+    >
+      <img
+        src="/linkedin.svg"
+        alt="Linkedin"
+        title="Share to LinkedIn"
+      />
+    </a>
+    <a
+      class="button"
+      href={`http://twitter.com/share?url=${encodeURIComponent(articleLink)}`}
+      target="_blank"
+    >
+      <img
+        src="/twitter.svg"
+        alt="Twitter"
+        title="Share to Twitter"
+      />
+    </a>
+    <a class="button" id="copyLink">
+      <img src="/link.svg" alt="Copy Link" title="Copy Link" />
+      <div id="tooltip">Link Copied!</div>
+    </a>
+  </div>
+</div>
+<script is:inline define:vars={{ articleLink }}>
+  const copyLinkButton = document.querySelector("#copyLink");
+  const tooltip = document.getElementById("tooltip");
+  if (copyLinkButton) {
+    copyLinkButton.addEventListener("click", () => {
+      navigator.clipboard.writeText(articleLink);
+      tooltip.classList.toggle("active");
+      tooltip.classList.add("show");
+      setTimeout(() => {
+        tooltip.classList.remove("show");
+      }, 2000);
+    });
+  }
+</script>
+
+<style>
+  .share-buttons {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    top: 20px;
+    padding: 20px;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+    border: 1px solid #f0f0f0;
+  }
+
+  #tooltip {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #333;
+    color: #fff;
+    padding: 5px 8px;
+    border-radius: 5px;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+    width: max-content;
+    font-size: 14px;
+  }
+
+  #tooltip:hover {
+    background-color: #333;
+    color: #fff;
+  }
+
+  #tooltip.show {
+    display: block;
+    opacity: 1;
+  }
+
+  #copyLink {
+    position: relative;
+  }
+
+  .share-buttons-heading {
+    font-style: normal;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 20px;
+    color: var(--neutral-900);
+    margin-bottom: 0.75rem;
+  }
+
+  .divider {
+    border: 0.75px solid #dddddd;
+    flex: none;
+    margin: 11px 0px;
+    width: 90%;
+  }
+
+  .button-row {
+    display: flex;
+  }
+
+  .button {
+    border: 1px solid var(--neutral-400);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 20px;
+    cursor: pointer;
+    transition: transform 0.3s ease-out;
+  }
+
+  .button img:hover {
+    transform: scale(1.05);
+    filter: invert(41%) sepia(78%) saturate(2552%) hue-rotate(182deg)
+      brightness(102%) contrast(105%);
+    transition: transform 0.3s ease-out;
+  }
+
+  @media only screen and (max-width: 1024px) {
+    .share-buttons-heading {
+      display: none;
+    }
+    .button-row {
+      flex-direction: column;
+      height: 160px;
+      justify-content: space-between;
+    }
+    .button-row {
+      width: fit-content;
+    }
+    .share-buttons {
+      align-items: center;
+      margin-top: 4rem;
+      margin-left: 64px;
+      width: fit-content;
+    }
+    .button {
+      margin-right: 0;
+    }
+  }
+
+  @media only screen and (max-width: 984px) {
+    .share-buttons {
+      width: fit-content;
+    }
+  }
+</style>

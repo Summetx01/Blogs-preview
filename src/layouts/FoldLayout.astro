@@ -1,0 +1,45 @@
+---
+interface Props {
+  bgColor?: string;
+  styleClasses?: string;
+  containerStyle?: string;
+  id?: string;
+  isE2E?: boolean;
+  backdropClasses?: string;
+  backgroundColor?: string;
+}
+
+const {
+  bgColor,
+  styleClasses,
+  containerStyle,
+  id,
+  isE2E = false,
+  backdropClasses = "w-full",
+  backgroundColor,
+} = Astro.props;
+---
+
+{
+  isE2E ? (
+    <div class={`w-full ${backdropClasses}`}>
+      <div
+        id={id ? id : ""}
+        class={`${bgColor ? `bg-[${bgColor}]` : ""} flex justify-center w-full ${styleClasses ?? ""} ${backgroundColor}`}
+      >
+        <div class={`max-w-[1440px] w-full ${containerStyle ?? ""}`}>
+          <slot />
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div
+      id={id ? id : ""}
+      class={`${bgColor ? `bg-[${bgColor}]` : ""} flex justify-center w-full ${styleClasses ?? ""} ${backgroundColor}`}
+    >
+      <div class={`max-w-[1440px] w-full ${containerStyle ?? ""}`}>
+        <slot />
+      </div>
+    </div>
+  )
+}

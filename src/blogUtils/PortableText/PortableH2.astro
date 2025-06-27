@@ -1,0 +1,10 @@
+---
+const { node } = Astro.props;
+
+const textContent = node.children.flat()[0].text.replace(/\n/g, "");
+const id = textContent.toLowerCase().split(" ").join("-");
+---
+
+<h2 id={id}>
+  {textContent}
+</h2>

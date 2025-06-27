@@ -1,0 +1,1031 @@
+---
+// Remove prerender and getStaticPaths for SSR
+export const prerender = false
+// export async function getStaticPaths() { ... }
+
+import { PortableText } from "astro-portabletext";
+import Layout from "../../layouts/NewLayout.astro";
+import ToC from "../../components/ToC/ToC.astro"
+import AdvancedToc from "../../components/ToC/AdvancedToc.astro"
+import { parseArticleHeadings } from "../../blogUtils/blog-utils";
+import CountryDropdown from "../../components/CountryDropdown.astro"
+import {
+  getCurrentBlogSanity,
+  getAllBlogsFromSanity,
+  getTrendingBlogs,
+} from "../../blogUtils/sanity"
+import PortableTextImage from "../../blogUtils/PortableText/PortableTextImage.astro";
+import PortableTextTable from "../../blogUtils/PortableText/PortableTextTable.astro";
+import CarouselRenderer from "../../blogUtils/PortableText/CarouselRenderer.astro";
+import PortableH2 from "../../blogUtils/PortableText/PortableH2.astro";
+import ArticleImageZoom from "../../blogUtils/ArticleImageZoom.astro";
+import PortableH3 from "../../blogUtils/PortableText/PortableH3.astro";
+import VideoEmbedRenderer from "../../blogUtils/PortableText/VideoEmbedRenderer.astro";
+
+const blogFromStrapi = null;
+
+const { slug } = Astro.params;
+
+// Handle missing slug parameter
+if (!slug) {
+  return Astro.redirect('/404');
+}
+
+let blogFromSanity;
+if (!blogFromStrapi) {
+  blogFromSanity = await getCurrentBlogSanity(slug);
+}
+
+let currentArticle = blogFromSanity || blogFromStrapi;
+
+// Handle 404 case for SSR
+if (!currentArticle) {
+  return Astro.redirect('/404');
+}
+
+let content = "";
+let parsedHeadings = null;
+
+parsedHeadings = content.length > 0 ? parseArticleHeadings(content) : null;
+
+function parseAdvancedHeadings() {
+  const body = currentArticle?.body;
+
+  if (body) {
+    const filteredItems = body
+      .filter((item: any) => item.style === "h2" || item.style === "h3")
+      ?.map((item: any) => ({
+        style: item.style,
+        child: item.children,
+      }));
+
+    const formattedArr: any[] = [];
+
+    for (let i = 0; i < filteredItems.length - 1; i++) {
+      if (filteredItems[i].style === "h2") {
+        if (filteredItems[i + 1].style === "h3") {
+          let j = i + 1;
+          let children: any[] = [];
+          for (
+            ;
+            j < filteredItems.length && filteredItems[j].style === "h3";
+            j++
+          ) {
+            children.push(filteredItems[j].child[0].text);
+          }
+          formattedArr.push({
+            parent: {
+              id: filteredItems[i].child[0].text
+                .toLowerCase()
+                .split(" ")
+                .join("-")
+                .replace(/\n/g, ""),
+              text: filteredItems[i].child[0].text.replace(/\n/g, ""),
+            },
+            children: children.map((text) => ({
+              id: text.toLowerCase().split(" ").join("-").replace(/\n/g, ""),
+              text: text.replace(/\n/g, ""),
+            })),
+          });
+        } else {
+          formattedArr.push({
+            parent: {
+              id: filteredItems[i].child[0].text
+                .toLowerCase()
+                .split(" ")
+                .join("-")
+                .replace(/\n/g, ""),
+              text: filteredItems[i].child[0].text.replace(/\n/g, ""),
+            },
+            children: [],
+          });
+        }
+      }
+    }
+
+    if (
+      filteredItems.length > 0 &&
+      filteredItems[filteredItems.length - 1].style === "h2"
+    ) {
+      formattedArr.push({
+        parent: {
+          id: filteredItems[filteredItems.length - 1].child[0].text
+            .toLowerCase()
+            .split(" ")
+            .join("-"),
+          text: filteredItems[filteredItems.length - 1].child[0].text,
+        },
+        children: [],
+      });
+    }
+
+    return formattedArr;
+  } else return [];
+}
+
+let advancedHeadings: any[] | null = null;
+advancedHeadings = !(content.length > 0) ? parseAdvancedHeadings() : null;
+
+const customComponents = {
+  type: {
+    image: PortableTextImage,
+    carouselBlock: CarouselRenderer,
+    table: PortableTextTable,
+    videoBlock: VideoEmbedRenderer,
+  },
+  block: {
+    h2: PortableH2,
+    h3: PortableH3,
+  },
+};
+
+const diffImageLayout = [
+  "juspay-orchestrator-and-merchant-controlled-routing-engine",
+  "our-belief-in-an-ecosystem-that-fosters-diversity-interoperability-and-innovation",
+];
+
+function getBlogLink(blog: any) {
+  if (blog.language === "pt-br") {
+    return `/pt-br/blog/${blog.slug}`;
+  }
+  if (
+    blog.region?.length === 1 &&
+    blog.region[0].slug === "pt-br" &&
+    blog.language === "en"
+  ) {
+    return `/en-br/blog/${blog.slug}`;
+  }
+  if (blog.region?.length === 1 && blog.region[0].slug === "in") {
+    return `/en-in/blog/${blog.slug}`;
+  }
+  return `/blog/${blog.slug}`;
+}
+
+
+const getAlternateBlogUrl = (blog:any) => {
+  if (blog.alternateLanguageVersion.language == "pt-br") {
+    return `/pt-br/blog/${blog.alternateLanguageVersion.slug}`;
+  }
+  if (blog.alternateLanguageVersion.region.length === 1) {
+    return `/en-br/blog/${blog.alternateLanguageVersion.slug}`;
+  }
+  return `/blog/${blog.alternateLanguageVersion.slug}`;
+};
+
+let alternatePages: string[] = [];
+if (currentArticle?.alternateLanguageVersion) {
+  alternatePages = [`blog/${currentArticle.slug}`];
+  alternatePages.push(getAlternateBlogUrl(currentArticle).slice(1));
+}
+
+
+---
+
+<Layout
+  id="blog"
+  title={`Juspay | ${currentArticle?.meta_title}`}
+  description={currentArticle?.meta_description}
+  footerLightMode={false}
+  ogImage={currentArticle?.imageUrl}
+  footerCustomClass="bg-[#f4f4f4] pt-10"
+  shouldScrollToTop={false}
+  navLightMode={true}
+  additionalSchemaType="Blog"
+  blogDetails={{
+    headLine: currentArticle?.title,
+    image: currentArticle?.imageUrl,
+    datePublished: `${currentArticle?.rawPublishedAt}`,
+    dateModified: `${currentArticle?.rawUpdatedAt}`,
+    author: currentArticle?.authors[0],
+    description: currentArticle?.meta_description,
+    slug: currentArticle?.slug,
+  }}
+>
+  <div class="relative">
+    <div class="w-full bg-[#fff] pt-[100px] lg:pt-[180px]">
+      <div
+        class="w-full max-w-[1080px] mx-auto flex flex-col justify-start px-4"
+      >
+        <h1
+          class="max-lg:max-w-[400px] lg:w-[900px] text-[#1c1c1c] text-[24px] lg:text-[46px] font-bold leading-[120%] tracking-tight"
+        >
+          {currentArticle?.title}
+        </h1>
+
+        <div class="flex items-center gap-[16px] mt-[16px] lg:mt-[30px] w-fit">
+          <div class="flex">
+            {
+              currentArticle?.authors?.slice(0, 3).map((author: any, index: number) => {
+                return (
+                  <img
+                    style={`${index ? `margin-left:-${10}px;` : ``}`}
+                    class="w-7 h-7 lg:w-[60px] lg:h-[60px] rounded-full object-cover"
+                    src={author?.avatarURL || "/user.png"}
+                    alt=""
+                  />
+                );
+              })
+            }
+          </div>
+
+          <div class="flex flex-col items-start lg:gap-[4px]">
+            <div class="flex flex-wrap gap-1">
+              {
+                currentArticle?.authors?.slice(0, 3).map((author, index) => {
+                  return (
+                    <a
+                      href={author.linkedin}
+                      class="cursor-pointer"
+                      target="_blank"
+                    >
+                      <span class="text-[#1c1c1c] font-[500] text-[16px] lg:text-[20px] text-start text-nowrap hover:underline underline-offset-1">
+                        {`${author.name}${index < currentArticle?.authors?.length - 1 ? ", " : ""}`}
+                      </span>
+                    </a>
+                  );
+                })
+              }
+            </div>
+            <div
+              class="flex flex-row items-center gap-2 text-[12px] md:text-[14px] lg:text-[16px] font-[500] text-[#5A5F66]"
+            >
+              <span>{currentArticle?.readTime}</span>
+              <span
+                class="w-[4px] h-[4px] lg:h-[5px] lg:w-[5px] rounded-full bg-[#bdc0c3] opacity-70"
+              ></span>
+              <span>{currentArticle?.publishedAt}</span>
+            </div>
+          </div>
+        </div>
+
+        {
+          currentArticle?.alternateLanguageVersion && (
+            <div class="mt-4 lg:mt-10">
+              <a
+                href={getAlternateBlogUrl(currentArticle)}
+                class="text-juspayBlue-light font-semibold text-[12px] lg:text-[16px] flex items-center border border-juspayBlue-light w-fit px-3 py-1 lg:px-6 lg:py-2 rounded-md lg:rounded-xl"
+              >
+                <span>
+                  {currentArticle.language === "en" &&
+                    "Leia o artigo em Português"}
+                  {currentArticle.language === "pt-br" &&
+                    "Read this article in English"}
+                </span>
+
+                <span class="rotate-90 mt-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                  >
+                    <path
+                      d="M6.66602 11.5508C7.55107 10.3325 8.58858 9.24138 9.75112 8.30561C9.89716 8.18806 10.1015 8.18806 10.2476 8.30561C11.4101 9.24138 12.4476 10.3325 13.3327 11.5508"
+                      stroke="#2b8eff"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                </span>
+              </a>
+            </div>
+          )
+        }
+      </div>
+
+      <div class="flex justify-end mr-10 lg:hidden">
+        <CountryDropdown dropdownClass="dropdown-mobile" />
+      </div>
+
+      <div class="flex items-center justify-center pb-10">
+        <div
+          class="w-full flex justify-between pt-8 max-w-[1080px] lg:gap-16 px-4 relative article-container"
+        >
+          <div class="w-full max-w-[680px]">
+            {
+              currentArticle?.summary && (
+                <div class="w-full bg-neutrals-600/10 mt-[40px] py-4 lg:text-[16px] text-[#696969] rounded-[15px] -translate-y-[50px] lg:-translate-y-[20px]">
+                  <div class="italic px-4 lg:text-[16px]">
+                    {currentArticle?.summary?.description}
+                  </div>
+                  <ul
+                    class={`pl-8 lg:pl-10 ${currentArticle.summary.description && "pt-4"} pr-[12px]`}
+                  >
+                    {currentArticle?.summary?.bullets?.map((item: any) => (
+                      <li class="italic list-disc lg:text-[16px] text-justify">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            }
+            {
+              !diffImageLayout.includes(slug) && (
+                <img
+                  class="w-full rounded-2xl"
+                  src={currentArticle?.imageUrl}
+                  id="cover-img"
+                  alt=""
+                />
+              )
+            }
+
+            <ArticleImageZoom />
+            <!--summary section start-->
+
+            <!--summary section end-->
+            {
+              content.length > 0 ? (
+                <>
+                  {/* <ArticleImageZoom /> */}
+                  <article class="markdown-content" set:html={content} />
+                </>
+              ) : (
+                <article>
+                  <PortableText
+                    value={currentArticle?.body}
+                    components={customComponents}
+                  />
+                </article>
+              )
+            }
+          </div>
+          <div class="lg:w-2/5 hidden lg:block h-fit sticky-container">
+            {
+              parsedHeadings && (
+                <ToC
+                  customHeading="Blog Highlights"
+                  headings={parsedHeadings}
+                  articleLink={`https://juspay.io${getBlogLink(currentArticle)}`}
+                >
+                  <CountryDropdown dropdownClass="dropdown-desktop" />
+                </ToC>
+              )
+            }
+            {
+              advancedHeadings && (
+                <AdvancedToc
+                  customHeading="Blog Highlights"
+                  headings={advancedHeadings}
+                  articleLink={`https://juspay.io${getBlogLink(currentArticle)}`}
+                >
+                  <CountryDropdown dropdownClass="dropdown-desktop" />
+                </AdvancedToc>
+              )
+            }
+          </div>
+        </div>
+      </div>
+      <!-- <FoldLayout
+        isE2E={true}
+        backdropClasses="bg-[#f4f4f4] rounded-t-3xl lg:rounded-t-[52px] py-18  px-4 relative z-40"
+      >
+        <div
+          class="text-[40px] font-semibold tracking-tight text-[#1c1c1c] pb-8"
+        >
+          Related Articles
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {
+            trendingBlogs?.map((blog: any) => {
+              function getBlogLink(blog: any) {
+                if (blog.language === "pt-br") {
+                  return `/pt-br/blog/${blog.slug}`;
+                }
+                if (
+                  blog.region?.length === 1 &&
+                  blog.region[0].slug === "pt-br" &&
+                  blog.language === "en"
+                ) {
+                  return `/en-br/blog/${blog.slug}`;
+                }
+                if (blog.region?.length === 1 && blog.region[0].slug === "in") {
+                  return `/en-in/blog/${blog.slug}`;
+                }
+                return `/blog/${blog.slug}`;
+              }
+              return (
+                <>
+                  {blog.title ? (
+                    <div class="flex gap-6 flex-col p-6 bg-[#fff] rounded-2xl">
+                      <a href={getBlogLink(blog)}>
+                        <img
+                          class="rounded-2xl aspect-video object-cover"
+                          src={blog.imageUrl}
+                          alt={blog.title}
+                        />
+                      </a>
+                      <div class="flex gap-6 items-center">
+                        <div class="bg-[#EBF3FF] text-sm border border-[#0561E233] rounded-lg flex items-center justify-center py-2 px-4">
+                          {" "}
+                          {blog.publishedAt}{" "}
+                        </div>
+                        <div class="border text-sm border-[#0561E233] rounded-lg flex items-center justify-center py-2 px-4">
+                          {" "}
+                          {blog.readTime}{" "}
+                        </div>
+                      </div>
+                      <a
+                        href={getBlogLink(blog)}
+                        class="text-2xl font-semibold leading-tight"
+                      >
+                        {" "}
+                        {blog.title}{" "}
+                      </a>
+                    </div>
+                  ) : (
+                    <div />
+                  )}
+                </>
+              );
+            })
+          }
+        </div>
+      </FoldLayout> -->
+    </div>
+  </div>
+</Layout>
+
+<style is:global>
+  :target {
+    -webkit-animation: target-fade 5s 1;
+    -moz-animation: target-fade 5s 1;
+  }
+
+  @-webkit-keyframes target-fade {
+    0% {
+      background-color: rgba(229, 255, 0, 0.5);
+    }
+    100% {
+      background-color: rgba(229, 255, 0, 0);
+    }
+  }
+
+  @-moz-keyframes target-fade {
+    0% {
+      background-color: rgba(229, 255, 0, 0.1);
+    }
+    100% {
+      background-color: rgba(229, 255, 0, 0);
+    }
+  }
+  .article {
+    display: flex;
+    margin-bottom: 40px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+    flex-direction: row-reverse;
+    justify-content: space-between;
+  }
+
+  article {
+    font-style: normal;
+    font-weight: 400;
+    font-size: 18px;
+    line-height: 30px;
+    color: #666666;
+  }
+
+  article a {
+    color: #0099ff;
+  }
+
+  .fin-end {
+    display: flex;
+    width: 100%;
+    max-width: 1200px;
+    margin: 64px auto;
+    align-items: center;
+  }
+
+  .find-end-line {
+    border-top: 1px solid #e6e6e6;
+    width: 50%;
+  }
+
+  .find-end-image {
+    margin: 0 1rem;
+  }
+
+  .back {
+    width: 85px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-style: normal;
+    font-weight: 400;
+    font-size: 20px;
+    line-height: 28px;
+    letter-spacing: 0.01em;
+    color: #222428;
+    outline: none;
+    text-decoration: none;
+    margin-bottom: 75px;
+  }
+
+  .back:hover {
+    filter: invert(44%) sepia(70%) saturate(7055%) hue-rotate(215deg)
+      brightness(101%) contrast(102%);
+  }
+
+  .article-body {
+    flex: 4;
+    max-width: 760px;
+  }
+
+  .article-description {
+    font-style: normal;
+    font-weight: 400;
+    font-size: 18px;
+    line-height: 26px;
+    color: #666666;
+    mix-blend-mode: normal;
+    margin-bottom: 20px;
+  }
+
+  .right-sidebar {
+    flex: 1;
+  }
+
+  .article-body-h1 {
+    font-style: normal;
+    font-weight: 600;
+    font-size: 36px;
+    line-height: 48px;
+    color: #1c1c1c;
+    margin: 0 0 2rem 0;
+  }
+
+  h2 {
+    font-style: normal;
+    font-weight: 600;
+    font-size: 28px;
+    line-height: 40px;
+    color: #1c1c1c;
+    margin-top: 48px;
+    margin: 3rem 0 1rem 0;
+  }
+
+  h3 {
+    font-style: normal;
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 24px;
+    margin: 2.5rem 0 1rem 0;
+    color: #1c1c1c;
+  }
+
+  h3 strong {
+    font-style: normal;
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 24px;
+    margin: 2.5rem 0 1rem 0;
+  }
+
+  strong {
+    color: #1c1c1c;
+  }
+
+  h4 {
+    margin-top: 38px;
+  }
+
+  p,
+  li {
+    font-style: normal;
+    font-weight: 400;
+    font-size: 18px;
+    line-height: 1.6;
+    color: #696969;
+  }
+
+  .cover-image {
+    width: 100%;
+    /* max-width: 771px; */
+    max-height: 481px;
+    border-radius: 4px;
+    object-fit: cover;
+  }
+
+  .article-tag {
+    margin-top: 2rem;
+    font-style: normal;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 20px;
+    margin-bottom: 10px;
+    display: flex;
+    color: rgba(51, 51, 51, 0.8);
+    text-decoration: underline;
+    width: fit-content;
+  }
+
+  .article-tag:active {
+    background: #0585dd;
+    color: #ffffff;
+  }
+
+  .author-meta-row {
+    display: flex;
+    margin-bottom: 3rem;
+    flex-direction: column;
+  }
+
+  .author-meta-row .author-section {
+    margin-bottom: 4px;
+    margin-top: 0px;
+  }
+
+  .illustrator {
+    margin: 8px 0 0 0;
+  }
+
+  .illustrator article {
+    font-style: normal;
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--neutral-700);
+  }
+
+  .illustrator-details {
+    text-decoration: none;
+    color: var(--neutral-700);
+  }
+
+  .illustrator-details.no-highlight {
+    color: var(--neutral-700) !important;
+  }
+
+  .illustrator-details:hover {
+    color: #0099ff;
+  }
+  .cover-image-container {
+    margin: 0 0 48px 0;
+  }
+
+  .left-sidebar {
+    max-width: 360px;
+  }
+  @media only screen and (min-width: 1281px) {
+    .left-sidebar {
+      width: 100%;
+      max-width: 360px;
+    }
+  }
+
+  .markdown-content img,
+  .markdown-content pre {
+    margin: 16px 0;
+  }
+
+  .markdown-content pre {
+    position: relative;
+    border-radius: 6px;
+  }
+
+  pre {
+    font-size: 1rem;
+    line-height: 150%;
+    overflow: scroll;
+  }
+
+  pre code {
+    word-wrap: break-word;
+    border-radius: 4px;
+  }
+
+  code {
+    word-wrap: break-word;
+  }
+
+  .markdown-content img {
+    max-width: 100%;
+    margin: 16px auto;
+    display: flex;
+  }
+
+  .markdown-content blockquote::before {
+    content: url(/images/quotesymbol.svg);
+    position: absolute;
+
+    height: 40px;
+    width: 40px;
+  }
+
+  .markdown-content blockquote {
+    margin: 3rem 0;
+    position: relative;
+  }
+
+  .markdown-content blockquote p {
+    font-style: normal;
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 40px;
+    color: #696969;
+    margin: 0 0 0 4rem;
+  }
+
+  .markdown-content iframe {
+    width: 100%;
+    height: 50vh;
+    margin: 16px 0;
+  }
+
+  .article-metadata {
+    color: #696969;
+    display: flex;
+    font-size: 14px;
+  }
+
+  .article-date {
+    margin-right: 10px;
+  }
+
+  .article-metadata img {
+    margin-right: 10px;
+  }
+
+  .breadcrumb-parent {
+    max-width: 1200px;
+    position: sticky;
+    top: 71px;
+    margin: 2rem 0 1rem 0;
+    background: #ffffff;
+    z-index: 10;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 1rem 0;
+  }
+
+  .breadcrumbs {
+    display: block;
+    flex-direction: row;
+    align-items: center;
+    max-width: 1440px;
+    margin-left: auto;
+    margin-right: auto;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .breadcrumb-item {
+    font-style: normal;
+    font-weight: 400;
+    font-size: 16px;
+    line-height: 20px;
+    text-decoration: none;
+    color: #333333;
+    text-transform: capitalize;
+  }
+
+  .breadcrumb-item.active {
+    color: #0099ff;
+  }
+
+  .breadcrumb-separator {
+    margin-right: 10px;
+    color: rgba(34, 36, 40, 0.2);
+  }
+
+  .breadcrumb-item:hover {
+    color: rgba(34, 36, 40, 0.8);
+  }
+
+  .arrow-image-breadcrumb {
+    padding: 0 8px;
+  }
+
+  @media only screen and (max-width: 1400px) {
+    .article-body {
+      min-width: 0;
+    }
+  }
+
+  @media only screen and (max-width: 1280px) {
+    .article {
+      max-width: 56.5rem;
+    }
+    .fin-end {
+      max-width: 56.5rem;
+      width: 90%;
+    }
+  }
+
+  @media only screen and (max-width: 984px) {
+    .article-body {
+      max-width: 47.5rem;
+      width: 47.5rem;
+    }
+  }
+
+  @media only screen and (max-width: 768px) {
+    .article-body-h1 {
+      font-style: normal;
+      font-weight: 600;
+      font-size: 28px;
+      line-height: 40px;
+      margin-bottom: 1rem;
+    }
+
+    h2 {
+      font-style: normal;
+      font-weight: 500;
+      font-size: 24px;
+      line-height: 32px;
+      margin-top: 32px;
+    }
+
+    h3 {
+      font-style: normal;
+      font-weight: 500;
+      font-size: 18px;
+      line-height: 24px;
+    }
+    p,
+    li {
+      font-style: normal;
+      font-weight: 400;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .markdown-content blockquote::before {
+      transform: scale(0.7);
+    }
+
+    .markdown-content blockquote p {
+      font-size: 20px;
+      line-height: 30px;
+      color: #696969;
+      margin: 0 0 0 3rem;
+    }
+    .article-date {
+      font-size: 14px;
+    }
+    .read-time {
+      font-size: 14px;
+    }
+    .author-meta-row {
+      width: 100%;
+    }
+    .seperator-circle {
+      width: 10px;
+      height: 10px;
+    }
+    .article-metadata {
+      align-items: center;
+    }
+  }
+
+  .code-toolbar {
+    display: flex;
+    padding-bottom: 25px;
+    width: 100%;
+    align-items: center;
+  }
+
+  .toolbar-circle {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 10px;
+    cursor: pointer;
+  }
+
+  .toolbar-circle.red {
+    background-color: #ff605c;
+  }
+
+  .toolbar-circle.yellow {
+    background-color: #ffbd44;
+  }
+
+  .toolbar-circle.green {
+    background-color: #00ca4e;
+  }
+
+  .hljs-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    cursor: pointer;
+    padding: 8px;
+    color: white;
+    background: transparent;
+    border: 1px solid #e6e6e6;
+    border-radius: 4px;
+    margin-top: 6px;
+    margin-right: 6px;
+    position: absolute;
+    right: 0;
+  }
+
+  .hljs-copy:hover {
+    color: white;
+    background: #000000;
+  }
+  p {
+    margin-block-start: 1em;
+    margin-block-end: 1em;
+  }
+  ul {
+    padding-left: 10px;
+  }
+  li {
+    padding-left: 10px;
+    position: relative;
+  }
+
+  article li::before {
+    position: absolute;
+    content: "•";
+    width: 8px;
+    height: 8px;
+    color: #696969;
+    font-size: 1.5em;
+    top: -10px;
+    left: -12px;
+  }
+
+  /*
+      unicode-bidi: isolate;
+      font-variant-numeric: tabular-nums;
+      text-transform: none;
+      text-indent: 0px !important;
+      text-align: start !important;
+      text-align-last: start !important; */
+
+  /* li::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      -moz-border-radius: 7.5px;
+      -webkit-border-radius: 7.5px;
+      border-radius: 7.5px;
+      background-color: #696969;
+      margin-right: 8px;
+      margin-bottom: 2px;
+    } */
+</style>
+
+<script>
+  import gsap from "gsap";
+  import ScrollTrigger from "gsap/ScrollTrigger";
+  gsap.registerPlugin(ScrollTrigger);
+
+  function setupStickySection() {
+    const windowWidth = window.innerWidth;
+
+    if (windowWidth >= 1024) {
+      const container = document.querySelector(
+        ".sticky-container",
+      ) as HTMLElement;
+      const parent = document.querySelector(
+        ".article-container",
+      ) as HTMLElement;
+
+      if (container && parent) {
+        // Wait for all images to load before measuring
+        Promise.all(
+          Array.from(parent.getElementsByTagName("img")).map((img) => {
+            if (img.complete) return Promise.resolve();
+            return new Promise((resolve) => {
+              img.addEventListener("load", resolve);
+              img.addEventListener("error", resolve);
+            });
+          }),
+        )
+          .then(() => {
+            // Small delay to ensure final layout calculation
+            return new Promise((resolve) => setTimeout(resolve, 100));
+          })
+          .then(() => {
+            // Measure height here
+            const pinHeight = parent.offsetHeight - container.offsetHeight - 30;
+
+            gsap.to(container, {
+              scrollTrigger: {
+                trigger: container,
+                start: "-80px top",
+                end: `+=${pinHeight} top`,
+                pin: true,
+                pinSpacing: false,
+              },
+            });
+          });
+      }
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", setupStickySection);
+</script>
