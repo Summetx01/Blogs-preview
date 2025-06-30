@@ -17,6 +17,7 @@ class SpellCheckEngine {
     this.useAPI = true; // Always prefer API
     this.apiCache = new Map(); // Cache API results
     this.rawApiResults = new Map(); // Store raw API results before filtering
+    this.STORAGE_KEY = "spellcheck_sanity_words";
   }
 
   async initialize() {
@@ -79,16 +80,46 @@ class SpellCheckEngine {
 
   async loadSanityWords() {
     try {
+      // Load from browser storage first (handles propagation delays)
+      const storedWords = this.loadWordsFromStorage();
+      storedWords.forEach((word) => this.sanityWords.add(word.toLowerCase()));
+
+      // Then fetch from Sanity and merge
       const customWords = await browserClient.fetch(
         '*[_type == "customWords"]{word}'
       );
+
       customWords.forEach((item) => {
         if (item.word) {
           this.sanityWords.add(item.word.toLowerCase());
         }
       });
+
+      // Update storage with the merged list
+      this.saveWordsToStorage(Array.from(this.sanityWords));
     } catch (error) {
       console.warn("Could not load custom words from Sanity:", error);
+      // Fallback to storage only if Sanity fails
+      const storedWords = this.loadWordsFromStorage();
+      storedWords.forEach((word) => this.sanityWords.add(word.toLowerCase()));
+    }
+  }
+
+  loadWordsFromStorage() {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.warn("Could not load words from storage:", error);
+      return [];
+    }
+  }
+
+  saveWordsToStorage(words) {
+    try {
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(words));
+    } catch (error) {
+      console.warn("Could not save words to storage:", error);
     }
   }
 
@@ -111,7 +142,12 @@ class SpellCheckEngine {
       if (result.success) {
         // Add to local cache
         this.sanityWords.add(word.toLowerCase());
-        // Reload Sanity words and re-filter existing results
+
+        // Add to browser storage immediately (handles propagation delay)
+        const currentWords = Array.from(this.sanityWords);
+        this.saveWordsToStorage(currentWords);
+
+        // Re-filter existing results with updated dictionaries
         await this.refilterCachedResults();
         return true;
       } else {

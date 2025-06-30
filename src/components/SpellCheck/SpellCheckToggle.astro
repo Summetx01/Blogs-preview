@@ -5,7 +5,7 @@ const { customClass = "" } = Astro.props;
 <div class={`spell-check-toggle-container ${customClass}`}>
   <button
     id="spell-check-toggle"
-    class="spell-check-toggle relative bg-gray-800 shadow-lg border-2 border-gray-700 rounded-xl px-5 py-3 text-white hover:bg-gray-700 hover:border-blue-500 hover:shadow-xl transition-all duration-300 ease-out flex items-center gap-3 font-medium text-sm"
+    class="spell-check-toggle relative bg-gray-800 shadow-lg border-2 border-gray-700 rounded-xl px-5 py-3 text-white hover:bg-gray-700 hover:border-blue-500 hover:shadow-xl transition-all duration-300 ease-out flex items-center gap-3 font-medium text-sm z-100"
     aria-label="Toggle spell check"
   >
     <div class="relative">
@@ -19,21 +19,36 @@ const { customClass = "" } = Astro.props;
     <span class="error-count hidden bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold shadow-sm">0</span>
   </button>
 
-  <div class="spell-check-loading hidden mt-3">
+  <div class="spell-check-loading hidden mt-3 z-[9998]">
     <div class="flex items-center gap-3 text-sm text-white bg-gray-800 bg-opacity-95 rounded-lg px-4 py-2 shadow-lg border border-gray-600">
       <div class="animate-spin rounded-full h-4 w-4 border-2 border-blue-400 border-t-transparent"></div>
       <span>Checking spelling...</span>
     </div>
   </div>
 
-  <div class="spell-check-status mt-3 text-sm hidden">
+  <div class="spell-check-status mt-3 text-sm hidden z-[9998]">
     <div class="status-container bg-gray-800 bg-opacity-95 rounded-lg px-4 py-2 shadow-lg border-l-4 border border-gray-600">
       <span class="status-text font-medium text-white"></span>
     </div>
   </div>
+
+  <!-- Error Summary Panel -->
+  <div class="spell-check-errors-panel hidden mt-3 z-[9997]">
+    <div class="bg-gray-800 bg-opacity-95 rounded-lg p-4 shadow-lg border border-gray-600 max-h-80 overflow-y-auto">
+      <h4 class="text-white font-semibold mb-3 flex items-center gap-2">
+        <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.728-.833-2.498 0L4.316 15.5c-.77.833.192 2.5 1.732 2.5z"></path>
+        </svg>
+        Spelling Errors Found
+      </h4>
+      <div class="error-list space-y-2 text-white">
+        <!-- Errors will be populated here -->
+      </div>
+    </div>
+  </div>
 </div>
 
-<style>
+<style is:global>
   .spell-check-toggle.active {
     background-color: #3b82f6;
     border-color: #2563eb;
@@ -101,6 +116,60 @@ const { customClass = "" } = Astro.props;
   .status-container.info .status-text {
     color: #93c5fd;
   }
+
+  /* Error panel styles */
+  .error-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background-color: rgba(239, 68, 68, 0.15);
+    border-left: 3px solid #ef4444;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    color: #ffffff;
+  }
+
+  .error-item:hover {
+    background-color: rgba(239, 68, 68, 0.25);
+  }
+
+  .error-word {
+    color: #ffffff;
+    font-medium: true;
+    font-size: 14px;
+  }
+
+  .error-count-badge {
+    background-color: #ef4444;
+    color: white;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+    min-width: 24px;
+    text-align: center;
+  }
+
+  .spell-added-to-dict {
+    background-color: rgb(59 130 246 / 0.2);
+    border-bottom: 2px solid #3b82f6;
+    padding: 1px 2px;
+    border-radius: 2px;
+  }
+
+  .highlighted-word {
+    background-color: rgb(255 165 0 / 0.4) !important;
+    border-bottom: 3px solid #ffa500 !important;
+    animation: highlightPulse 0.6s ease-in-out;
+  }
+
+  @keyframes highlightPulse {
+    0% { background-color: rgb(255 165 0 / 0.6); }
+    50% { background-color: rgb(255 165 0 / 0.2); }
+    100% { background-color: rgb(255 165 0 / 0.4); }
+  }
 </style>
 
 <script>
@@ -118,6 +187,8 @@ const { customClass = "" } = Astro.props;
     spellCheckText!: HTMLElement | null;
     loadingIndicator!: HTMLElement | null;
     statusElement!: HTMLElement | null;
+    errorPanel!: HTMLElement | null;
+    errorList!: HTMLElement | null;
     articleContent!: HTMLElement | null;
 
     constructor() {
@@ -137,6 +208,8 @@ const { customClass = "" } = Astro.props;
       this.spellCheckText = this.toggleButton?.querySelector('.spell-check-text') || null;
       this.loadingIndicator = document.querySelector('.spell-check-loading');
       this.statusElement = document.querySelector('.spell-check-status .status-text');
+      this.errorPanel = document.querySelector('.spell-check-errors-panel');
+      this.errorList = document.querySelector('.error-list');
       this.articleContent = document.querySelector('article');
     }
 
@@ -197,6 +270,9 @@ const { customClass = "" } = Astro.props;
         // Highlight errors
         this.highlightErrors(this.errors, textNodes);
         
+        // Show error summary panel
+        this.updateErrorSummary();
+        
         // Update UI
         this.isActive = true;
         this.updateToggleUI();
@@ -216,6 +292,7 @@ const { customClass = "" } = Astro.props;
 
     deactivateSpellCheck() {
       this.clearHighlights();
+      this.hideErrorPanel();
       this.isActive = false;
       this.errors = [];
       this.updateToggleUI();
@@ -467,6 +544,85 @@ const { customClass = "" } = Astro.props;
     handleErrorClick(detail: any) {
       // Handle custom error click events if needed
     }
+
+    updateErrorSummary() {
+      if (!this.errorList || !this.errorPanel) return;
+
+      if (this.errors.length === 0) {
+        this.hideErrorPanel();
+        return;
+      }
+
+      // Count occurrences of each unique word
+      const errorCounts: { [key: string]: any } = {};
+      this.errors.forEach((error: any) => {
+        const word = error.word.toLowerCase();
+        if (errorCounts[word]) {
+          errorCounts[word].count++;
+        } else {
+          errorCounts[word] = {
+            count: 1,
+            originalWord: error.word,
+            suggestions: error.suggestions,
+            message: error.message
+          };
+        }
+      });
+
+      // Clear existing content
+      this.errorList.innerHTML = '';
+
+      // Create error items
+      Object.keys(errorCounts).forEach((wordKey: string) => {
+        const errorData = errorCounts[wordKey];
+        const errorItem = document.createElement('div');
+        errorItem.className = 'error-item rounded';
+        errorItem.innerHTML = `
+          <div class="error-word">${errorData.originalWord}</div>
+          <div class="error-count-badge">${errorData.count}</div>
+        `;
+
+        // Click to highlight all instances of this word
+        errorItem.addEventListener('click', () => {
+          this.highlightWordInstances(wordKey);
+        });
+
+        this.errorList!.appendChild(errorItem);
+      });
+
+      // Show the panel
+      this.errorPanel?.classList.remove('hidden');
+    }
+
+    highlightWordInstances(targetWord: string) {
+      // Remove previous highlights
+      document.querySelectorAll('.spell-error').forEach(el => {
+        el.classList.remove('highlighted-word');
+      });
+
+      // Highlight all instances of the target word
+      document.querySelectorAll('.spell-error').forEach(el => {
+        if (el.getAttribute('data-word')?.toLowerCase() === targetWord) {
+          el.classList.add('highlighted-word');
+          // Scroll first instance into view
+          if (!document.querySelector('.highlighted-word.scrolled')) {
+            el.classList.add('scrolled');
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      });
+
+      // Remove scroll marker after animation
+      setTimeout(() => {
+        document.querySelectorAll('.scrolled').forEach(el => {
+          el.classList.remove('scrolled');
+        });
+      }, 1000);
+    }
+
+    hideErrorPanel() {
+      this.errorPanel?.classList.add('hidden');
+    }
   }
 
   // Initialize when DOM is loaded
@@ -519,5 +675,17 @@ const { customClass = "" } = Astro.props;
     border-bottom: 2px solid #3b82f6;
     padding: 1px 2px;
     border-radius: 2px;
+  }
+
+  .highlighted-word {
+    background-color: rgb(255 165 0 / 0.4) !important;
+    border-bottom: 3px solid #ffa500 !important;
+    animation: highlightPulse 0.6s ease-in-out;
+  }
+
+  @keyframes highlightPulse {
+    0% { background-color: rgb(255 165 0 / 0.6); }
+    50% { background-color: rgb(255 165 0 / 0.2); }
+    100% { background-color: rgb(255 165 0 / 0.4); }
   }
 </style> 

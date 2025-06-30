@@ -338,7 +338,7 @@ if (currentArticle?.alternateLanguageVersion) {
             <!--summary section end-->
             
             <!-- Spell Check Toggle -->
-            <div class="fixed bottom-0 right-0 mb-6 mr-6">
+            <div class="fixed bottom-0 right-0 mb-6 mr-6 z-100">
               <SpellCheckToggle customClass="z-20" />
             </div>
             
@@ -384,72 +384,7 @@ if (currentArticle?.alternateLanguageVersion) {
           </div>
         </div>
       </div>
-      <!-- <FoldLayout
-        isE2E={true}
-        backdropClasses="bg-[#f4f4f4] rounded-t-3xl lg:rounded-t-[52px] py-18  px-4 relative z-40"
-      >
-        <div
-          class="text-[40px] font-semibold tracking-tight text-[#1c1c1c] pb-8"
-        >
-          Related Articles
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {
-            trendingBlogs?.map((blog: any) => {
-              function getBlogLink(blog: any) {
-                if (blog.language === "pt-br") {
-                  return `/pt-br/blog/${blog.slug}`;
-                }
-                if (
-                  blog.region?.length === 1 &&
-                  blog.region[0].slug === "pt-br" &&
-                  blog.language === "en"
-                ) {
-                  return `/en-br/blog/${blog.slug}`;
-                }
-                if (blog.region?.length === 1 && blog.region[0].slug === "in") {
-                  return `/en-in/blog/${blog.slug}`;
-                }
-                return `/blog/${blog.slug}`;
-              }
-              return (
-                <>
-                  {blog.title ? (
-                    <div class="flex gap-6 flex-col p-6 bg-[#fff] rounded-2xl">
-                      <a href={getBlogLink(blog)}>
-                        <img
-                          class="rounded-2xl aspect-video object-cover"
-                          src={blog.imageUrl}
-                          alt={blog.title}
-                        />
-                      </a>
-                      <div class="flex gap-6 items-center">
-                        <div class="bg-[#EBF3FF] text-sm border border-[#0561E233] rounded-lg flex items-center justify-center py-2 px-4">
-                          {" "}
-                          {blog.publishedAt}{" "}
-                        </div>
-                        <div class="border text-sm border-[#0561E233] rounded-lg flex items-center justify-center py-2 px-4">
-                          {" "}
-                          {blog.readTime}{" "}
-                        </div>
-                      </div>
-                      <a
-                        href={getBlogLink(blog)}
-                        class="text-2xl font-semibold leading-tight"
-                      >
-                        {" "}
-                        {blog.title}{" "}
-                      </a>
-                    </div>
-                  ) : (
-                    <div />
-                  )}
-                </>
-              );
-            })
-          }
-        </div>
-      </FoldLayout> -->
+    
     </div>
   </div>
 </Layout>
@@ -596,12 +531,12 @@ if (currentArticle?.alternateLanguageVersion) {
     color: #1c1c1c;
   }
 
-  h4 {
+  article h4 {
     margin-top: 38px;
   }
 
   p,
-  li {
+  article li {
     font-style: normal;
     font-weight: 400;
     font-size: 18px;
