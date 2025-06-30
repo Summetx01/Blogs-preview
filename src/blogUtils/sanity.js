@@ -4,9 +4,7 @@ export const client = createClient({
   projectId: "9sed75bn",
   dataset: "production",
   apiVersion: "2024-03-11",
-  // Set to `true` for production environments
   useCdn: true,
-  // token: process.env.SANITY_SECRET_TOKEN // Only if you want to update content with the client
 });
 
 //Blogs and Case studies

@@ -141,7 +141,9 @@ const { customClass = "" } = Astro.props;
     }
 
     attachEventListeners() {
-      this.toggleButton?.addEventListener('click', () => this.handleToggle());
+      this.toggleButton?.addEventListener('click', () => {
+        this.handleToggle();
+      });
       
       // Listen for custom events
       document.addEventListener('spell-check-error-clicked', (e: any) => {
@@ -346,12 +348,52 @@ const { customClass = "" } = Astro.props;
       element.classList.add('spell-ignored');
     }
 
-    addToDictionary(element: HTMLElement, word: string) {
-      if (this.spellChecker) {
-        this.spellChecker.addToCustomDictionary(word);
+    async addToDictionary(element: HTMLElement, word: string) {
+      if (!this.spellChecker) return;
+      
+      // Show loading state
+      const button = document.querySelector('.add-dict-btn') as HTMLElement;
+      const originalText = button?.textContent;
+      if (button) {
+        button.textContent = 'Adding...';
+        button.setAttribute('disabled', 'true');
       }
-      element.classList.remove('spell-error');
-      element.classList.add('spell-added-to-dict');
+      
+      try {
+        const success = await this.spellChecker.addToCustomDictionary(word);
+        
+        if (success) {
+          element.classList.remove('spell-error');
+          element.classList.add('spell-added-to-dict');
+          this.showStatus(`Added "${word}" to dictionary`, 'success');
+          
+          // Re-run spell check to update other instances of this word
+          setTimeout(() => {
+            if (this.isActive) {
+              console.log('Re-running spell check after adding word:', word);
+              this.activateSpellCheck();
+            }
+          }, 800);
+        } else {
+          // Word already exists or other issue
+          element.classList.remove('spell-error');
+          element.classList.add('spell-ignored');
+          this.showStatus(`"${word}" already in dictionary`, 'info');
+        }
+      } catch (error) {
+        console.error('Failed to add word to dictionary:', error);
+        this.showStatus(`Failed to add "${word}" to dictionary`, 'error');
+        
+        // Fallback to ignore
+        element.classList.remove('spell-error');
+        element.classList.add('spell-ignored');
+      } finally {
+        // Restore button state
+        if (button && originalText) {
+          button.textContent = originalText;
+          button.removeAttribute('disabled');
+        }
+      }
     }
 
     clearHighlights() {
@@ -424,14 +466,28 @@ const { customClass = "" } = Astro.props;
 
     handleErrorClick(detail: any) {
       // Handle custom error click events if needed
-      console.log('Error clicked:', detail);
     }
   }
 
   // Initialize when DOM is loaded
   document.addEventListener('DOMContentLoaded', () => {
-    new SpellCheckToggle();
+    try {
+      new SpellCheckToggle();
+    } catch (error) {
+      console.error('Failed to initialize SpellCheckToggle:', error);
+    }
   });
+
+  // Fallback initialization if DOMContentLoaded already fired
+  if (document.readyState === 'loading') {
+    // Document still loading, waiting for DOMContentLoaded
+  } else {
+    try {
+      new SpellCheckToggle();
+    } catch (error) {
+      console.error('Failed to initialize SpellCheckToggle immediately:', error);
+    }
+  }
 </script>
 
 <style is:global>

@@ -1,28 +1,44 @@
+import { createClient } from "@sanity/client";
+
+// Browser-safe Sanity client for spell check (no write token needed here)
+const browserClient = createClient({
+  projectId: "9sed75bn",
+  dataset: "production",
+  apiVersion: "2024-03-11",
+  useCdn: true,
+  // No token - this will be read-only for fetching custom words
+});
+
 class SpellCheckEngine {
   constructor() {
     this.customDictionary = new Set();
+    this.sanityWords = new Set(); // Cache Sanity words
     this.isInitialized = false;
     this.useAPI = true; // Always prefer API
     this.apiCache = new Map(); // Cache API results
+    this.rawApiResults = new Map(); // Store raw API results before filtering
   }
 
   async initialize() {
     try {
+      // Clear any existing cache to ensure fresh start
+      this.apiCache.clear();
+      this.rawApiResults.clear();
+
       // Load custom technical dictionary
       await this.loadCustomDictionary();
+
+      // Load custom words from Sanity
+      await this.loadSanityWords();
 
       // Test API availability
       await this.testAPIConnection();
 
       this.isInitialized = true;
-      console.log("Spell check engine initialized with LanguageTool API");
     } catch (error) {
       console.warn("LanguageTool API not available:", error);
       this.useAPI = false;
       this.isInitialized = true;
-      console.log(
-        "Spell check engine running in limited mode (custom dictionary only)"
-      );
     }
   }
 
@@ -41,7 +57,6 @@ class SpellCheckEngine {
 
       if (!response.ok) throw new Error("API not available");
 
-      console.log("LanguageTool API is available");
       this.useAPI = true;
     } catch (error) {
       console.warn("LanguageTool API not available");
@@ -56,10 +71,66 @@ class SpellCheckEngine {
       if (response.ok) {
         const terms = await response.json();
         terms.forEach((term) => this.customDictionary.add(term.toLowerCase()));
-        console.log(`Loaded ${terms.length} custom terms`);
       }
     } catch (error) {
       console.warn("Could not load custom dictionary:", error);
+    }
+  }
+
+  async loadSanityWords() {
+    try {
+      const customWords = await browserClient.fetch(
+        '*[_type == "customWords"]{word}'
+      );
+      customWords.forEach((item) => {
+        if (item.word) {
+          this.sanityWords.add(item.word.toLowerCase());
+        }
+      });
+    } catch (error) {
+      console.warn("Could not load custom words from Sanity:", error);
+    }
+  }
+
+  async addWordToSanity(word) {
+    try {
+      const response = await fetch("/api/spell-check/add-word", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ word }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Add to local cache
+        this.sanityWords.add(word.toLowerCase());
+        // Reload Sanity words and re-filter existing results
+        await this.refilterCachedResults();
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error("Error adding word to Sanity:", error);
+      throw error;
+    }
+  }
+
+  async refilterCachedResults() {
+    // First, reload Sanity words to get the latest data
+    await this.loadSanityWords();
+
+    // Then re-filter all cached results with updated dictionaries
+    for (const [cacheKey, rawResults] of this.rawApiResults.entries()) {
+      const filteredResults = this.filterErrors(rawResults, cacheKey);
+      this.apiCache.set(cacheKey, filteredResults);
     }
   }
 
@@ -77,6 +148,8 @@ class SpellCheckEngine {
     if (this.useAPI) {
       try {
         errors = await this.checkTextWithAPI(text);
+        // Store raw results before filtering
+        this.rawApiResults.set(cacheKey, [...errors]);
       } catch (error) {
         console.warn("API check failed:", error);
         // Return empty array if API fails instead of local fallback
@@ -88,12 +161,12 @@ class SpellCheckEngine {
     }
 
     // Filter out technical terms and false positives
-    errors = this.filterErrors(errors, text);
+    const filteredErrors = this.filterErrors(errors, text);
 
-    // Cache the result
-    this.apiCache.set(cacheKey, errors);
+    // Cache the filtered result
+    this.apiCache.set(cacheKey, filteredErrors);
 
-    return errors;
+    return filteredErrors;
   }
 
   async checkTextWithAPI(text) {
@@ -135,8 +208,11 @@ class SpellCheckEngine {
     return errors.filter((error) => {
       const word = error.word.toLowerCase();
 
-      // Skip if in custom dictionary
+      // Skip if in custom dictionary (technical terms)
       if (this.customDictionary.has(word)) return false;
+
+      // Skip if in Sanity custom words
+      if (this.sanityWords.has(word)) return false;
 
       // Skip technical terms
       if (this.isLikelyTechnical(word)) return false;
@@ -274,11 +350,24 @@ class SpellCheckEngine {
     return false;
   }
 
-  addToCustomDictionary(word) {
+  async addToCustomDictionary(word) {
     if (word && typeof word === "string") {
-      this.customDictionary.add(word.toLowerCase());
-      console.log(`Added "${word}" to custom dictionary`);
+      try {
+        // Add to Sanity
+        await this.addWordToSanity(word);
+
+        // Also add to local memory for immediate effect
+        this.customDictionary.add(word.toLowerCase());
+
+        return true;
+      } catch (error) {
+        console.error(`Failed to add "${word}" to dictionary:`, error);
+        // Still add to local memory as fallback
+        this.customDictionary.add(word.toLowerCase());
+        return false;
+      }
     }
+    return false;
   }
 }
 
@@ -289,6 +378,9 @@ export const getSpellCheckEngine = async () => {
   if (!spellCheckEngine) {
     spellCheckEngine = new SpellCheckEngine();
     await spellCheckEngine.initialize();
+  } else {
+    // Always reload Sanity words to get latest data
+    await spellCheckEngine.loadSanityWords();
   }
   return spellCheckEngine;
 };
