@@ -19,6 +19,7 @@ import PortableH2 from "../../blogUtils/PortableText/PortableH2.astro";
 import ArticleImageZoom from "../../blogUtils/ArticleImageZoom.astro";
 import PortableH3 from "../../blogUtils/PortableText/PortableH3.astro";
 import VideoEmbedRenderer from "../../blogUtils/PortableText/VideoEmbedRenderer.astro";
+import PortableInlineImage from "../../blogUtils/PortableText/PortableInlineImage.astro";
 import SpellCheckToggle from "../../components/SpellCheck/SpellCheckToggle.astro";
 
 const blogFromStrapi = null;
@@ -135,6 +136,9 @@ const customComponents = {
   block: {
     h2: PortableH2,
     h3: PortableH3,
+  },
+  mark: {
+    inlineImage: PortableInlineImage,
   },
 };
 
@@ -877,15 +881,25 @@ if (currentArticle?.alternateLanguageVersion) {
     margin-block-start: 1em;
     margin-block-end: 1em;
   }
-  ul {
-    padding-left: 10px;
+  article ul {
+    padding-left: 20px;
   }
-  li {
+  ul li {
+    margin-top: 10px;
     padding-left: 10px;
     position: relative;
   }
 
-  article li::before {
+  article ol {
+    padding-left: 20px;
+  }
+  ol li {
+    list-style-type: decimal;
+    margin-top: 10px;
+    padding-left: 5px;
+  }
+
+  article ul li::before {
     position: absolute;
     content: "•";
     width: 8px;
